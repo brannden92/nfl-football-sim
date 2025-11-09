@@ -338,40 +338,6 @@ def load_rosters_from_excel(filename="fake_nfl_rosters.xlsx"):
 
 
 
-# ============================
-# --- CREATE LEAGUE FROM EXCEL ---
-# ============================
-def create_new_league():
-    # Load players from Excel
-    rosters = load_rosters_from_excel("fake_nfl_rosters.xlsx")
-    team.players = rosters[team.name]  # <-- now a list of Player objects
-    leagues = {"AFC": {"East":[],"North":[],"South":[],"West":[]},
-               "NFC": {"East":[],"North":[],"South":[],"West":[]}}
-    league_order = list(leagues.keys())
-    div_order = ["East","North","South","West"]
-
-    idx = 0
-    team_names = list(rosters.keys())
-
-    for league_name in league_order:
-        for div_name in div_order:
-            for _ in range(4):  # 4 teams per division
-                if idx >= len(team_names):
-                    break
-                team = Team(team_names[idx])
-                team.players = rosters[team.name]  # assign Player objects from Excel
-                team.qb_starters = [p for p in team.players if p.position=="QB"][:1]
-                team.rb_starters = [p for p in team.players if p.position=="RB"][:2]
-                team.wr_starters = [p for p in team.players if p.position=="WR"][:2]
-                team.te_starters = [p for p in team.players if p.position=="TE"][:2]
-                team.defense_starters = [p for p in team.players if p.position in ["DL","LB","CB","S"]]
-                team.league = league_name
-                team.division = div_name
-                leagues[league_name][div_name].append(team)
-                idx += 1
-
-    teams = [t for l in leagues.values() for d in l.values() for t in d]
-    return teams
 
 
 
@@ -876,6 +842,9 @@ def load_franchise(filename="franchise_save.pkl"):
 # --- CREATE NEW LEAGUE ---
 # ============================
 def create_new_league():
+    # Load all rosters from Excel file
+    rosters = load_rosters_from_excel("fake_nfl_rosters.xlsx")
+
     team_names = [
     "Buffalo Bills", "Miami Dolphins", "New England Patriots", "New York Jets",
     "Baltimore Ravens", "Cincinnati Bengals", "Cleveland Browns", "Pittsburgh Steelers",
@@ -893,7 +862,8 @@ def create_new_league():
         for div_name in divs:
             for _ in range(4):
                 team = Team(team_names[idx])
-                team.players = load_rosters_from_excel("fake_nfl_rosters.xlsx")
+                # Assign players from the rosters dictionary for this specific team
+                team.players = rosters.get(team.name, [])
                 team.qb_starters = [p for p in team.players if p.position=="QB"][:1]
                 team.rb_starters = [p for p in team.players if p.position=="RB"][:2]
                 team.wr_starters = [p for p in team.players if p.position=="WR"][:2]
