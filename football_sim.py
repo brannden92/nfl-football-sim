@@ -1,3 +1,191 @@
+# ============================
+# --- GAME CLOCK ---
+# ============================
+class GameClock:
+    def __init__(self):
+        self.quarter = 1
+        self.time_remaining = 15 * 60  # 15 minutes in seconds
+        self.two_min_warning_shown = [False, False, False, False]
+    
+    def format_time(self):
+        minutes = self.time_remaining // 60
+        seconds = self.time_remaining % 60
+        return f"Q{self.quarter} - {minutes}:{seconds:02d}"
+    
+    def run_time(self, seconds):
+        self.time_remaining -= seconds
+        
+        # Check for 2-minute warning
+        if self.time_remaining <= 120 and not self.two_min_warning_shown[self.quarter - 1]:
+            self.two_min_warning_shown[self.quarter - 1] = True
+            return True  # Clock stops
+        
+        if self.time_remaining <= 0:
+            if self.quarter < 4:
+                self.quarter += 1
+                self.time_remaining = 15 * 60
+            else:
+                return False  # Game over
+        return False
+    
+    def is_game_over(self):
+        return self.quarter > 4 or (self.quarter == 4 and self.time_remaining <= 0)
+    
+    def is_half_over(self):
+        return self.quarter == 3 and self.time_remaining == 15 * 60
+
+# ============================
+# --- SIMULATE PLAY ---
+# ============================
+def simulate_play(offense, defense, down, distance, yards_to_go):
+    """Simulate a single play and return results"""
+    qb = offense.qb_starters[0]
+    rb = random.choice(offense.rb_starters)
+    def_player = random.choice(defense.defense_starters)
+    
+    # Choose play type based on down and distance
+    if down == 3 and distance > 7:
+        play_type = random.choices(["pass", "run"], weights=[0.75, 0.25])[0]
+    elif distance <= 3:
+        play_type = random.choices(["pass", "run"], weights=[0.45, 0.55])[0]
+    else:
+        play_type = random.choices(["pass", "run"], weights=[0.6, 0.4])[0]
+    
+    clock_stops = False
+    time_elapsed = 0
+    yards_gained = 0
+    
+    if play_type == "pass":
+        qb.pass_attempts += 1
+        
+        # Randomly select target - 70% WR/TE, 30% RB
+        if random.random() < 0.30:
+            receiver = rb
+            is_rb_target = True
+        else:
+            receiver = random.choice(offense.wr_starters + offense.te_starters)
+            is_rb_target = False
+        
+        receiver.rec_targets += 1
+        
+        success_rate = 0.63 + (qb.skill - def_player.skill) / 200
+        
+        # Check for sack OR QB scramble
+        if random.random() < 0.08:
+            if random.random() < 0.60:
+                # Sack
+                yards_gained = -random.randint(3, 8)
+                qb.sacks_taken += 1
+                time_elapsed = random.randint(4, 8)
+            else:
+                # QB Scramble
+                yards_gained = random.randint(2, 12)
+                qb.rush_attempts += 1
+                qb.rush_yards += yards_gained
+                if yards_gained > qb.longest_rush:
+                    qb.longest_rush = yards_gained
+                time_elapsed = random.randint(4, 8)
+                
+                # QB could fumble on scramble
+                if random.random() < 0.02:
+                    qb.fumbles += 1
+                    time_elapsed = random.randint(6, 10)
+                    clock_stops = True
+                    return yards_gained, time_elapsed, clock_stops, True  # Turnover
+        
+        # Check for interception
+        elif random.random() < 0.025:
+            qb.interceptions += 1
+            def_player.interceptions_def += 1
+            time_elapsed = random.randint(5, 12)
+            clock_stops = True
+            return yards_gained, time_elapsed, clock_stops, True  # Turnover
+        
+        # Incomplete pass
+        elif random.random() > success_rate:
+            yards_gained = 0
+            time_elapsed = random.randint(4, 8)
+            clock_stops = True
+            
+            # Check if it was a drop
+            if random.random() < 0.15:
+                receiver.drops += 1
+        
+        # Completed pass
+        else:
+            # Check for big play (8% chance)
+            if random.random() < 0.08:
+                yards_gained = random.randint(20, 75)
+            else:
+                if is_rb_target:
+                    yards_gained = random.randint(1, 12) + (receiver.skill - def_player.skill) // 20
+                else:
+                    yards_gained = random.randint(3, 18) + (receiver.skill - def_player.skill) // 20
+            
+            qb.pass_completions += 1
+            qb.pass_yards += yards_gained
+            receiver.rec_catches += 1
+            receiver.rec_yards += yards_gained
+            
+            if yards_gained > qb.longest_pass:
+                qb.longest_pass = yards_gained
+            if yards_gained > receiver.longest_rec:
+                receiver.longest_rec = yards_gained
+            
+            # Check if player went out of bounds
+            if random.random() < 0.25:
+                clock_stops = True
+            
+            time_elapsed = random.randint(6, 12)
+    
+    else:  # Run play
+        rb.rush_attempts += 1
+        
+        # Check for big run (5% chance)
+        if random.random() < 0.05:
+            yards_gained = random.randint(15, 80)
+        else:
+            yards_gained = random.randint(-2, 10) + (rb.skill - def_player.skill) // 20
+        
+        rb.rush_yards += yards_gained
+        
+        if yards_gained > rb.longest_rush:
+            rb.longest_rush = yards_gained
+        
+        time_elapsed = random.randint(3, 7)
+        
+        # Check for fumble
+        if random.random() < 0.015:
+            rb.fumbles += 1
+            def_player.forced_fumbles += 1
+            if random.random() < 0.5:
+                def_player.fumble_recoveries += 1
+                time_elapsed = random.randint(6, 10)
+                clock_stops = True
+                return yards_gained, time_elapsed, clock_stops, True  # Turnover
+    
+    # Defensive stats
+    def_player.tackles += 1
+    if random.random() < 0.12:
+        def_player.qb_pressure += 1
+    if play_type == "pass" and random.random() < 0.08:
+        def_player.pass_deflections += 1
+    
+    # Check for touchdown
+    if yards_to_go - yards_gained <= 0:
+        if play_type == "pass":
+            qb.pass_td += 1
+            receiver.rec_td += 1
+        else:
+            rb.rush_td += 1
+        offense.score += 7
+        clock_stops = True
+    
+    return yards_gained, time_elapsed, clock_stops, False
+
+# ============================
+# --- SIMULATE DRIVE ---
+# ============================
 import random
 import pickle
 from prettytable import PrettyTable
@@ -24,11 +212,13 @@ class Player:
         self.pass_td = 0
         self.interceptions = 0
         self.longest_pass = 0
+        self.sacks_taken = 0
 
         self.rush_attempts = 0
         self.rush_yards = 0
         self.rush_td = 0
         self.longest_rush = 0
+        self.fumbles = 0
 
         self.rec_targets = 0
         self.rec_catches = 0
@@ -57,11 +247,13 @@ class Player:
         self.pass_td = 0
         self.interceptions = 0
         self.longest_pass = 0
+        self.sacks_taken = 0
 
         self.rush_attempts = 0
         self.rush_yards = 0
         self.rush_td = 0
         self.longest_rush = 0
+        self.fumbles = 0
 
         self.rec_targets = 0
         self.rec_catches = 0
@@ -93,6 +285,9 @@ class Player:
 # ============================
 # --- TEAM CLASS ---
 # ============================
+# ============================
+# --- TEAM CLASS ---
+# ============================
 class Team:
     def __init__(self, name):
         self.name = name
@@ -110,10 +305,18 @@ class Team:
         self.league = None
         self.division = None
 
+        # container to hold the last game's per-player stat deltas
+        # format: { "Player Name": {stat_key: delta, ...}, ...}
+        self.last_game_stats = {}
+
     def reset_score(self):
         self.score = 0
+
+    def reset_weekly_stats(self):
+        """Reset stats for all players on the team (season-level resets are done at season start)."""
         for p in self.players:
             p.reset_stats()
+
 
 # ============================
 # --- FRANCHISE CLASS ---
@@ -147,109 +350,230 @@ def create_full_roster(team_name):
 # ============================
 # --- SIMULATE DRIVE ---
 # ============================
-def simulate_drive(offense,defense):
+def simulate_drive(offense, defense):
+    """Simulate a full drive with multiple plays until TD, turnover, or punt"""
     qb = offense.qb_starters[0]
     rb = offense.rb_starters[0]
-    wr = random.choice(offense.wr_starters + offense.te_starters)
-    def_player = random.choice(defense.defense_starters)
-
-    play_type = random.choices(["pass","run"], weights=[0.6,0.4])[0]
-    if play_type=="pass":
-        qb.pass_attempts += 1
-        success = random.random() < 0.55 + (qb.skill-def_player.skill)/200
-        if success:
-            yards = random.randint(5,40) + wr.skill//10
-            qb.pass_completions += 1
-            qb.pass_yards += yards
-            if yards>qb.longest_pass: qb.longest_pass = yards
-            wr.rec_targets += 1
-            wr.rec_catches += 1
-            wr.rec_yards += yards
-            if yards>wr.longest_rec: wr.longest_rec = yards
-            if random.random()<0.25:
-                qb.pass_td += 1
-                wr.rec_td += 1
-                offense.score += 7
+    
+    # Random starting field position (20-40 yard line typically)
+    starting_position = random.randint(20, 40)
+    yards_to_go = 100 - starting_position  # Distance to end zone
+    
+    down = 1
+    distance = 10
+    
+    while yards_to_go > 0:
+        # Handle 4th down BEFORE simulating play
+        if down == 4:
+            # Field goal attempt
+            if yards_to_go <= 40 and random.random() < 0.75:
+                fg_distance = yards_to_go + 17
+                if random.random() < 0.80:
+                    offense.score += 3
+                return
+            
+            # Go for it on short yardage
+            elif distance <= 2 and random.random() < 0.30:
+                pass  # Continue to simulate play
+            else:
+                # Punt
+                return
+        
+        # Simulate the play
+        yards_gained, time_elapsed, clock_stops, is_turnover = simulate_play(
+            offense, defense, down, distance, yards_to_go
+        )
+        
+        # Handle turnovers
+        if is_turnover:
+            return
+        
+        # Update field position
+        yards_to_go -= yards_gained
+        distance -= yards_gained
+        
+        # Check for touchdown
+        if yards_to_go <= 0:
+            return
+        
+        # Update downs
+        if distance <= 0:
+            down = 1
+            distance = 10
         else:
-            qb.interceptions += 1
-            def_player.interceptions_def += 1
-    else:
-        yards = random.randint(0,15) + rb.skill//10
-        rb.rush_attempts += 1
-        rb.rush_yards += yards
-        if yards>rb.longest_rush: rb.longest_rush = yards
-        if random.random()<0.25:
-            rb.rush_td += 1
-            offense.score += 7
-
-    # Defensive stats
-    if random.random()<0.3: def_player.sacks += 1
-    if random.random()<0.1: def_player.qb_pressure += 1
-    if random.random()<0.05: def_player.forced_fumbles += 1
-    if random.random()<0.03: def_player.fumble_recoveries += 1
-    if random.random()<0.07: def_player.pass_deflections += 1
-    def_player.tackles += random.randint(0,2)
+            down += 1
+        
+        # Safety check
+        if down > 4:
+            return
 
 # ============================
 # --- SIMULATE GAME ---
 # ============================
-def simulate_game(team1,team2,user_team=None):
-    team1.reset_score()
-    team2.reset_score()
-    drives_per_team = random.randint(10,14)
+STAT_ATTRS = [
+    # Passing
+    "pass_attempts","pass_completions","pass_yards","pass_td","interceptions","longest_pass","sacks_taken",
+    # Rushing
+    "rush_attempts","rush_yards","rush_td","longest_rush","fumbles",
+    # Receiving
+    "rec_targets","rec_catches","rec_yards","rec_td","drops","longest_rec",
+    # Defense
+    "tackles","sacks","qb_pressure","interceptions_def","forced_fumbles","fumble_recoveries","pass_deflections"
+]
+
+def _snapshot_player_stats(players):
+    snap = {}
+    for p in players:
+        snap[p.name] = {attr: getattr(p, attr, 0) for attr in STAT_ATTRS}
+    return snap
+
+def _compute_delta_and_store(team, before_snap, after_players):
+    deltas = {}
+    for p in after_players:
+        name = p.name
+        before = before_snap.get(name, {attr:0 for attr in STAT_ATTRS})
+        delta = {}
+        for attr in STAT_ATTRS:
+            after_val = getattr(p, attr, 0)
+            delta[attr] = after_val - before.get(attr, 0)
+        deltas[name] = delta
+    team.last_game_stats = deltas
+
+def simulate_game(team1, team2, user_team=None):
+    # Take snapshots BEFORE the game (season totals before)
+    before_team1 = _snapshot_player_stats(team1.players)
+    before_team2 = _snapshot_player_stats(team2.players)
+
+    # Do NOT reset player season stats here — we want them to accumulate.
+    team1.score = 0
+    team2.score = 0
+
+    # Number of drives per team (simulates possessions)
+    drives_per_team = random.randint(11, 13)
+
     for _ in range(drives_per_team):
-        simulate_drive(team1,team2)
-        simulate_drive(team2,team1)
-    if team1.score>team2.score: winner=team1
-    elif team2.score>team1.score: winner=team2
-    else: 
-        winner=random.choice([team1,team2])
+        simulate_drive(team1, team2)
+        simulate_drive(team2, team1)
+
+    # Determine winner
+    if team1.score > team2.score:
+        winner = team1
+    elif team2.score > team1.score:
+        winner = team2
+    else:
+        # Overtime / tie-breaker
+        winner = random.choice([team1, team2])
         winner.score += 3
+
+    # Update team season aggregates
     team1.points_for += team1.score
     team1.points_against += team2.score
     team2.points_for += team2.score
     team2.points_against += team1.score
-    if winner==team1:
-        team1.wins+=1
-        team2.losses+=1
+
+    if winner == team1:
+        team1.wins += 1
+        team2.losses += 1
     else:
-        team2.wins+=1
-        team1.losses+=1
+        team2.wins += 1
+        team1.losses += 1
+
+    # Compute per-player deltas (last game's stats) and store on the team
+    _compute_delta_and_store(team1, before_team1, team1.players)
+    _compute_delta_and_store(team2, before_team2, team2.players)
+
+    # Print result only if user team involved (or no user specified)
     if user_team is None or user_team in [team1.name, team2.name]:
         print(f"{team1.name} {team1.score} - {team2.name} {team2.score}")
+
     return winner
+
+
+# ============================
+# --- GET TEAM SUMMARY ---
+# ============================
+def get_team_summary(team, all_teams):
+    """Get team record, division standing, and league ranks"""
+    # Get division teams
+    div_teams = [t for t in all_teams if t.league == team.league and t.division == team.division]
+    div_teams_sorted = sorted(div_teams, key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+    div_rank = div_teams_sorted.index(team) + 1
+    
+    # Get offensive rank (points scored)
+    offense_sorted = sorted(all_teams, key=lambda t: t.points_for, reverse=True)
+    offense_rank = offense_sorted.index(team) + 1
+    
+    # Get defensive rank (points allowed - lower is better)
+    defense_sorted = sorted(all_teams, key=lambda t: t.points_against)
+    defense_rank = defense_sorted.index(team) + 1
+    
+    return div_rank, offense_rank, defense_rank
+
+def print_team_summary(team, all_teams):
+    """Print summary of team's current season"""
+    div_rank, offense_rank, defense_rank = get_team_summary(team, all_teams)
+    
+    print(f"\n{'='*70}")
+    print(f"{'YOUR TEAM: ' + team.name:^70}")
+    print(f"{'='*70}")
+    print(f"Record: {team.wins}-{team.losses} | {team.league} {team.division} | {div_rank}{get_ordinal(div_rank)} in Division")
+    print(f"Points For: {team.points_for} (Rank: {offense_rank}{get_ordinal(offense_rank)})")
+    print(f"Points Against: {team.points_against} (Rank: {defense_rank}{get_ordinal(defense_rank)})")
+    print(f"Point Differential: {team.points_for - team.points_against:+d}")
+    print(f"{'='*70}\n")
+
+def get_ordinal(n):
+    """Return ordinal suffix for a number (1st, 2nd, 3rd, etc.)"""
+    if 11 <= n % 100 <= 13:
+        return 'th'
+    return {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
 
 # ============================
 # --- VIEW TEAM STATS ---
 # ============================
-def print_team_stats(team):
+def print_team_stats(team, games_played):
+    print(f"\n=== SEASON STATS (Through {games_played} Games) ===")
+    
     print("\n=== Passing Leaders ===")
     table = PrettyTable()
-    table.field_names = ["Name","Comp","Att","Yards","TD","INT","Comp%","Y/A","Long"]
+    table.field_names = ["Name","Comp","Att","Comp%","Yards","TD","INT","Y/A","YPG","Long","Sacks"]
     qbs = sorted(team.qb_starters,key=lambda x:x.pass_yards,reverse=True)
     for qb in qbs:
         comp_pct = qb.pass_completions/qb.pass_attempts*100 if qb.pass_attempts else 0
         ypa = qb.pass_yards/qb.pass_attempts if qb.pass_attempts else 0
-        table.add_row([qb.name,qb.pass_completions,qb.pass_attempts,qb.pass_yards,
-                       qb.pass_td,qb.interceptions,round(comp_pct,1),round(ypa,1),qb.longest_pass])
+        ypg = qb.pass_yards/games_played if games_played > 0 else 0
+        table.add_row([qb.name,qb.pass_completions,qb.pass_attempts,round(comp_pct,1),qb.pass_yards,
+                       qb.pass_td,qb.interceptions,round(ypa,1),round(ypg,1),qb.longest_pass,qb.sacks_taken])
     print(table)
 
     print("\n=== Rushing Leaders ===")
     table = PrettyTable()
-    table.field_names = ["Name","Att","Yards","TD","Y/A","Long"]
-    rbs = sorted(team.rb_starters,key=lambda x:x.rush_yards,reverse=True)[:2]
-    for rb in rbs:
-        ya = rb.rush_yards/rb.rush_attempts if rb.rush_attempts else 0
-        table.add_row([rb.name,rb.rush_attempts,rb.rush_yards,rb.rush_td,round(ya,1),rb.longest_rush])
+    table.field_names = ["Name","Att","Yards","TD","Y/A","YPG","Long","Fum"]
+    # Include QBs and RBs
+    rushers = team.qb_starters + team.rb_starters
+    rushers = [r for r in rushers if r.rush_attempts > 0]
+    rushers.sort(key=lambda x: x.rush_yards, reverse=True)
+    rushers = rushers[:3]  # Top 3 rushers
+    
+    for rusher in rushers:
+        ya = rusher.rush_yards/rusher.rush_attempts if rusher.rush_attempts else 0
+        ypg = rusher.rush_yards/games_played if games_played > 0 else 0
+        table.add_row([rusher.name,rusher.rush_attempts,rusher.rush_yards,rusher.rush_td,round(ya,1),round(ypg,1),rusher.longest_rush,rusher.fumbles])
     print(table)
 
     print("\n=== Receiving Leaders ===")
     table = PrettyTable()
-    table.field_names = ["Name","Rec","Targets","Yards","TD","Y/R","Drops","Long"]
-    receivers = sorted(team.wr_starters + team.te_starters,key=lambda x:x.rec_yards,reverse=True)[:4]
+    table.field_names = ["Name","Rec","Targets","Yards","TD","Y/R","YPG","Long","Drops"]
+    # Include RBs in receiving stats
+    receivers = team.wr_starters + team.te_starters + team.rb_starters
+    receivers = [r for r in receivers if r.rec_targets > 0]
+    receivers.sort(key=lambda x: x.rec_yards, reverse=True)
+    receivers = receivers[:6]  # Top 6 receivers
+    
     for r in receivers:
         ypr = r.rec_yards/r.rec_catches if r.rec_catches else 0
-        table.add_row([r.name,r.rec_catches,r.rec_targets,r.rec_yards,r.rec_td,round(ypr,1),r.drops,r.longest_rec])
+        ypg = r.rec_yards/games_played if games_played > 0 else 0
+        table.add_row([r.name,r.rec_catches,r.rec_targets,r.rec_yards,r.rec_td,round(ypr,1),round(ypg,1),r.longest_rec,r.drops])
     print(table)
 
     print("\n=== Defensive Leaders ===")
@@ -259,6 +583,239 @@ def print_team_stats(team):
     for d in defenders:
         table.add_row([d.name,d.tackles,d.sacks,d.qb_pressure,d.interceptions_def,d.forced_fumbles,d.fumble_recoveries,d.pass_deflections])
     print(table)
+
+# ============================
+# --- PRINT LAST GAME STATS ---
+# ============================
+def print_last_game_stats(team):
+    """Print leaders/tables for the last game using team.last_game_stats (deltas)."""
+    if not getattr(team, "last_game_stats", None):
+        print("\nNo last game stats available for this team yet.")
+        return
+
+    lg = team.last_game_stats
+
+    # Passing leaders (last game)
+    print("\n=== LAST GAME: Passing Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Player","Comp","Att","Yds","TD","INT","Comp%","Y/A","Long"]
+    # find QBs present in last_game_stats
+    qbs = [p for p in team.players if p.position=="QB"]
+    for qb in qbs:
+        d = lg.get(qb.name, {})
+        att = d.get("pass_attempts", 0)
+        comp = d.get("pass_completions", 0)
+        yds = d.get("pass_yards", 0)
+        td = d.get("pass_td", 0)
+        itc = d.get("interceptions", 0)
+        comp_pct = round(100 * comp / att, 1) if att else 0
+        ypa = round(yds / att, 1) if att else 0
+        table.add_row([qb.name, comp, att, yds, td, itc, comp_pct, ypa, d.get("longest_pass", 0)])
+    print(table)
+
+    # Rushing leaders (last game)
+    print("\n=== LAST GAME: Rushing Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Player","Att","Yds","TD","Y/A","Long"]
+    rbs = [p for p in team.players if p.position=="RB"] + [p for p in team.players if p.position=="QB"]
+    rbs_sorted = sorted(rbs, key=lambda x: lg.get(x.name, {}).get("rush_yards", 0), reverse=True)[:3]
+    for r in rbs_sorted:
+        d = lg.get(r.name, {})
+        att = d.get("rush_attempts", 0)
+        yds = d.get("rush_yards", 0)
+        td = d.get("rush_td", 0)
+        ya = round(yds/att,1) if att else 0
+        table.add_row([r.name, att, yds, td, ya, d.get("longest_rush", 0)])
+    print(table)
+
+    # Receiving leaders (last game)
+    print("\n=== LAST GAME: Receiving Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Player","Catches","Targets","Yds","TD","Y/R","Drops","Long"]
+    recs = [p for p in team.players if p.position in ["WR","TE","RB"]]
+    recs_sorted = sorted(recs, key=lambda x: lg.get(x.name, {}).get("rec_yards",0), reverse=True)[:6]
+    for r in recs_sorted:
+        d = lg.get(r.name, {})
+        catches = d.get("rec_catches", 0)
+        targets = d.get("rec_targets", 0)
+        yds = d.get("rec_yards", 0)
+        td = d.get("rec_td", 0)
+        ypr = round(yds / catches, 1) if catches else 0
+        table.add_row([r.name, catches, targets, yds, td, ypr, d.get("drops", 0), d.get("longest_rec", 0)])
+    print(table)
+
+    # Defensive leaders (last game)
+    print("\n=== LAST GAME: Defensive Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Player","Tkl","Sacks","QB Press","INT","FF","FR","PD"]
+    defs = team.defense_starters
+    defs_sorted = sorted(defs, key=lambda x: lg.get(x.name, {}).get("tackles",0)+lg.get(x.name, {}).get("sacks",0), reverse=True)[:5]
+    for d in defs_sorted:
+        sd = lg.get(d.name, {})
+        table.add_row([
+            d.name,
+            sd.get("tackles", 0),
+            sd.get("sacks", 0),
+            sd.get("qb_pressure", 0),
+            sd.get("interceptions_def", 0),
+            sd.get("forced_fumbles", 0),
+            sd.get("fumble_recoveries", 0),
+            sd.get("pass_deflections", 0)
+        ])
+    print(table)
+
+
+
+# ============================
+# --- VIEW STANDINGS ---
+# ============================
+def view_standings(teams, user_team_name=None):
+    """Display league standings by division"""
+    leagues = {"AFC": {"East": [], "North": [], "South": [], "West": []},
+               "NFC": {"East": [], "North": [], "South": [], "West": []}}
+    
+    for team in teams:
+        leagues[team.league][team.division].append(team)
+    
+    for league_name, divisions in leagues.items():
+        print(f"\n{'='*60}")
+        print(f"{league_name} STANDINGS")
+        print(f"{'='*60}")
+        
+        for div_name, div_teams in divisions.items():
+            sorted_teams = sorted(div_teams, key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+            print(f"\n{league_name} {div_name}")
+            print(f"{'-'*60}")
+            
+            table = PrettyTable()
+            table.field_names = ["Team", "W", "L", "PF", "PA", "Diff"]
+            
+            for team in sorted_teams:
+                marker = " *" if team.name == user_team_name else ""
+                table.add_row([
+                    team.name + marker,
+                    team.wins,
+                    team.losses,
+                    team.points_for,
+                    team.points_against,
+                    team.points_for - team.points_against
+                ])
+            
+            print(table)
+
+# ============================
+# --- PLAYOFFS ---
+# ============================
+def run_playoffs(franchise):
+    """Run playoff bracket with division winners and wild cards"""
+    print("\n" + "="*70)
+    print("PLAYOFFS".center(70))
+    print("="*70)
+    
+    # Get playoff teams for each conference
+    afc_teams = get_playoff_teams([t for t in franchise.teams if t.league == "AFC"])
+    nfc_teams = get_playoff_teams([t for t in franchise.teams if t.league == "NFC"])
+    
+    print("\n=== AFC PLAYOFF TEAMS ===")
+    for i, team in enumerate(afc_teams, 1):
+        print(f"{i}. {team.name} ({team.wins}-{team.losses})")
+    
+    print("\n=== NFC PLAYOFF TEAMS ===")
+    for i, team in enumerate(nfc_teams, 1):
+        print(f"{i}. {team.name} ({team.wins}-{team.losses})")
+    
+    input("\nPress Enter to start Wild Card Round...")
+    
+    # Wild Card Round
+    print("\n" + "="*70)
+    print("WILD CARD ROUND".center(70))
+    print("="*70)
+    
+    afc_wc_winners = []
+    nfc_wc_winners = []
+    
+    # AFC Wild Card (2 vs 7, 3 vs 6, 4 vs 5)
+    afc_wc_winners.append(simulate_game(afc_teams[1], afc_teams[6], franchise.user_team_name))
+    afc_wc_winners.append(simulate_game(afc_teams[2], afc_teams[5], franchise.user_team_name))
+    afc_wc_winners.append(simulate_game(afc_teams[3], afc_teams[4], franchise.user_team_name))
+    
+    # NFC Wild Card
+    nfc_wc_winners.append(simulate_game(nfc_teams[1], nfc_teams[6], franchise.user_team_name))
+    nfc_wc_winners.append(simulate_game(nfc_teams[2], nfc_teams[5], franchise.user_team_name))
+    nfc_wc_winners.append(simulate_game(nfc_teams[3], nfc_teams[4], franchise.user_team_name))
+    
+    input("\nPress Enter to continue to Divisional Round...")
+    
+    # Divisional Round
+    print("\n" + "="*70)
+    print("DIVISIONAL ROUND".center(70))
+    print("="*70)
+    
+    # Re-seed winners (1 seed plays lowest remaining seed)
+    afc_remaining = [afc_teams[0]] + sorted(afc_wc_winners, key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+    nfc_remaining = [nfc_teams[0]] + sorted(nfc_wc_winners, key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+    
+    afc_div_winners = []
+    nfc_div_winners = []
+    
+    afc_div_winners.append(simulate_game(afc_remaining[0], afc_remaining[3], franchise.user_team_name))
+    afc_div_winners.append(simulate_game(afc_remaining[1], afc_remaining[2], franchise.user_team_name))
+    
+    nfc_div_winners.append(simulate_game(nfc_remaining[0], nfc_remaining[3], franchise.user_team_name))
+    nfc_div_winners.append(simulate_game(nfc_remaining[1], nfc_remaining[2], franchise.user_team_name))
+    
+    input("\nPress Enter to continue to Conference Championships...")
+    
+    # Conference Championships
+    print("\n" + "="*70)
+    print("CONFERENCE CHAMPIONSHIPS".center(70))
+    print("="*70)
+    
+    afc_champ = simulate_game(afc_div_winners[0], afc_div_winners[1], franchise.user_team_name)
+    nfc_champ = simulate_game(nfc_div_winners[0], nfc_div_winners[1], franchise.user_team_name)
+    
+    input("\nPress Enter to continue to the SUPER BOWL...")
+    
+    # Super Bowl
+    print("\n" + "="*70)
+    print("SUPER BOWL".center(70))
+    print("="*70)
+    
+    champion = simulate_game(afc_champ, nfc_champ, franchise.user_team_name)
+    
+    print("\n" + "="*70)
+    print(f"🏆 {champion.name} WIN THE SUPER BOWL! 🏆".center(70))
+    print("="*70)
+    
+    return champion
+
+def get_playoff_teams(conference_teams):
+    """Get 7 playoff teams from a conference (4 division winners + 3 wild cards)"""
+    divisions = {}
+    for team in conference_teams:
+        if team.division not in divisions:
+            divisions[team.division] = []
+        divisions[team.division].append(team)
+    
+    # Get division winners
+    div_winners = []
+    for div_teams in divisions.values():
+        winner = max(div_teams, key=lambda t: (t.wins, t.points_for - t.points_against))
+        div_winners.append(winner)
+    
+    # Sort division winners by record
+    div_winners.sort(key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+    
+    # Get wild card teams (best non-division winners)
+    non_winners = [t for t in conference_teams if t not in div_winners]
+    non_winners.sort(key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+    wild_cards = non_winners[:3]
+    
+    # Return all 7 teams seeded by record
+    playoff_teams = div_winners + wild_cards
+    playoff_teams.sort(key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+    
+    return playoff_teams
 
 # ============================
 # --- SAVE / LOAD ---
@@ -310,41 +867,111 @@ def create_new_league():
 # --- RUN FRANCHISE MENU ---
 # ============================
 def run_franchise(franchise):
-    retired_players=[]
+    retired_players = []
     while franchise.current_season <= FRANCHISE_LENGTH:
-        print(f"\n===== SEASON {franchise.current_season} =====")
+        print(f"\n{'='*70}")
+        print(f"SEASON {franchise.current_season}".center(70))
+        print(f"{'='*70}")
+        
+        # Reset season records
         for t in franchise.teams:
-            t.reset_score()
-        weekly_schedule = list(range(1,SEASON_GAMES+1))
+            t.wins = 0
+            t.losses = 0
+            t.points_for = 0
+            t.points_against = 0
+            t.score = 0
+            # Reset all player stats at start of season
+            for p in t.players:
+                p.reset_stats()
+        
+        # Regular season
         while franchise.current_week <= SEASON_GAMES:
-            print(f"\n--- WEEK {franchise.current_week} ---")
-            user_team = next(t for t in franchise.teams if t.name==franchise.user_team_name)
+            print(f"\n{'='*70}")
+            print(f"WEEK {franchise.current_week}".center(70))
+            print(f"{'='*70}")
+            
+            user_team = next(t for t in franchise.teams if t.name == franchise.user_team_name)
+            
             print("1. Simulate Week")
-            print("2. View Your Team Stats")
-            print("3. View Other Teams Stats")
-            print("4. View Standings")
-            print("5. Save Franchise")
-            choice=input("> ").strip()
-            if choice=="1":
-                # Random matchups
-                for i in range(0,len(franchise.teams),2):
-                    simulate_game(franchise.teams[i],franchise.teams[i+1],user_team=franchise.user_team_name)
+            print("2. View Last Game's Stats")        # renamed
+            print("3. View Your Team Season Stats")   # new accumulated season view
+            print("4. View Other Team Stats")
+            print("5. View Standings")
+            print("6. Save Franchise")
+            print("7. Quit")
+            choice = input("> ").strip()
+
+            if choice == "1":
+                # Simulate all games for the week (shuffle / pairing)
+                random.shuffle(franchise.teams)
+                for i in range(0, len(franchise.teams), 2):
+                    simulate_game(franchise.teams[i], franchise.teams[i+1], user_team=franchise.user_team_name)
+
+                # Show user team summary after each week
+                print_team_summary(user_team, franchise.teams)
                 franchise.current_week += 1
-            elif choice=="2":
-                print_team_stats(user_team)
-            elif choice=="3":
-                for idx,t in enumerate(franchise.teams):
+
+            elif choice == "2":
+                # Last game's stats (per-player deltas)
+                print_last_game_stats(user_team)
+
+            elif choice == "3":
+                # Season totals (accumulated)
+                games_played = franchise.current_week - 1
+                print_team_stats(user_team, games_played)
+
+            elif choice == "4":
+                games_played = franchise.current_week - 1
+                for idx, t in enumerate(franchise.teams):
                     print(f"{idx+1}. {t.name}")
-                sel=int(input("Select team: "))-1
-                print_team_stats(franchise.teams[sel])
-            elif choice=="4":
-                view_standings(franchise.teams,user_team_name=franchise.user_team_name)
-            elif choice=="5":
+                try:
+                    sel = int(input("Select team: ")) - 1
+                    if 0 <= sel < len(franchise.teams):
+                        print_team_stats(franchise.teams[sel], games_played)
+                except:
+                    print("Invalid selection.")
+
+            elif choice == "5":
+                view_standings(franchise.teams, user_team_name=franchise.user_team_name)
+
+            elif choice == "6":
                 save_franchise(franchise)
+
+            elif choice == "7":
+                save_franchise(franchise)
+                return
+
             else:
                 print("Invalid choice.")
+
+        
+        # Season complete - run playoffs
+        print(f"\n{'='*70}")
+        print("REGULAR SEASON COMPLETE".center(70))
+        print(f"{'='*70}")
+        view_standings(franchise.teams, user_team_name=franchise.user_team_name)
+        
+        input("\nPress Enter to start the playoffs...")
+        champion = run_playoffs(franchise)
+        
+        # Progress players (aging, skill changes, retirements)
+        print("\n=== OFF-SEASON ===")
+        for team in franchise.teams:
+            for player in team.players:
+                player.progress()
+                if player.should_retire() and not player.retired:
+                    player.retired = True
+                    retired_players.append(player)
+                    print(f"{player.name} ({team.name}) has retired at age {player.age}")
+        
         franchise.current_season += 1
         franchise.current_week = 1
+        
+        input("\nPress Enter to continue to next season...")
+    
+    print("\n" + "="*70)
+    print("FRANCHISE COMPLETE!".center(70))
+    print("="*70)
 
 # ============================
 # --- MAIN LOOP ---
@@ -356,6 +983,7 @@ def main():
     if choice=="2":
         franchise=load_franchise()
         if franchise is None:
+            print("No save file found. Starting new game...")
             teams=create_new_league()
             for i,t in enumerate(teams): print(f"{i+1}. {t.name}")
             sel=int(input("Select your team: "))-1
