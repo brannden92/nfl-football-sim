@@ -1,8 +1,3 @@
-import pandas as pd
-import random
-from prettytable import PrettyTable
-import pickle 
-
 # ============================
 # --- GAME CLOCK ---
 # ============================
@@ -191,12 +186,8 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
 # ============================
 # --- SIMULATE DRIVE ---
 # ============================
-# ============================
-# --- IMPORTS ---
-# ============================
 import random
 import pickle
-import pandas as pd
 from prettytable import PrettyTable
 
 FRANCHISE_LENGTH = 40
@@ -206,12 +197,11 @@ SEASON_GAMES = 17
 # --- PLAYER CLASS ---
 # ============================
 class Player:
-    def __init__(self, name, position, skill, age, durability=95):
+    def __init__(self, name, position, skill, age):
         self.name = name
         self.position = position
         self.skill = skill
         self.age = age
-        self.durability = durability
         self.years_played = 0
         self.retired = False
 
@@ -246,15 +236,39 @@ class Player:
         self.fumble_recoveries = 0
         self.pass_deflections = 0
 
+        # Career stats
+        self.career_stats = {}
         self.reset_stats()
 
     def reset_stats(self):
-        attrs = ["pass_attempts","pass_completions","pass_yards","pass_td","interceptions",
-                 "longest_pass","sacks_taken","rush_attempts","rush_yards","rush_td","longest_rush","fumbles",
-                 "rec_targets","rec_catches","rec_yards","rec_td","drops","longest_rec",
-                 "tackles","sacks","qb_pressure","interceptions_def","forced_fumbles","fumble_recoveries","pass_deflections"]
-        for attr in attrs:
-            setattr(self, attr, 0)
+        self.pass_attempts = 0
+        self.pass_completions = 0
+        self.pass_yards = 0
+        self.pass_td = 0
+        self.interceptions = 0
+        self.longest_pass = 0
+        self.sacks_taken = 0
+
+        self.rush_attempts = 0
+        self.rush_yards = 0
+        self.rush_td = 0
+        self.longest_rush = 0
+        self.fumbles = 0
+
+        self.rec_targets = 0
+        self.rec_catches = 0
+        self.rec_yards = 0
+        self.rec_td = 0
+        self.drops = 0
+        self.longest_rec = 0
+
+        self.tackles = 0
+        self.sacks = 0
+        self.qb_pressure = 0
+        self.interceptions_def = 0
+        self.forced_fumbles = 0
+        self.fumble_recoveries = 0
+        self.pass_deflections = 0
 
     def progress(self):
         if self.retired: return
@@ -267,7 +281,7 @@ class Player:
 
     def should_retire(self):
         return self.age >= 35
-    
+
 # ============================
 # --- TEAM CLASS ---
 # ============================
@@ -287,12 +301,12 @@ class Team:
         self.points_against = 0
         self.league = None
         self.division = None
-        self.last_game_stats = {}
 
     def reset_score(self):
         self.score = 0
 
     def reset_weekly_stats(self):
+        """Reset stats for all players on the team"""
         for p in self.players:
             p.reset_stats()
 
@@ -307,83 +321,23 @@ class Franchise:
         self.current_week = current_week
 
 # ============================
-# --- LOAD ROSTERS FROM EXCEL ---
+# --- CREATE FULL ROSTER ---
 # ============================
-import pandas as pd
-
-def load_rosters_from_excel(filename="fake_nfl_rosters.xlsx"):
-    df = pd.read_excel(filename)
-    df.columns = df.columns.str.strip()  # remove extra spaces
-
-    teams = {}
-    for _, row in df.iterrows():
-        player = Player(
-            name=row["Player Name"],
-            position=row["Position"],
-            skill=row["Skill"],
-            age=row["Age"],
-        )
-        # Optional attributes
-        player.durability = row.get("Durability", 100)
-        player.starter_rank = row.get("Starter Rank", 1)
-
-        team_name = row["Team"]
-        if team_name not in teams:
-            teams[team_name] = []
-        teams[team_name].append(player)
-
-    return teams  # dict: {team_name: [Player, Player, ...]}
-
-
-
-
-
-# ============================
-# --- CREATE LEAGUE FROM EXCEL ---
-# ============================
-def create_new_league():
-    # Load players from Excel
-    rosters = load_rosters_from_excel("fake_nfl_rosters.xlsx")
-    team.players = rosters[team.name]  # <-- now a list of Player objects
-    leagues = {"AFC": {"East":[],"North":[],"South":[],"West":[]},
-               "NFC": {"East":[],"North":[],"South":[],"West":[]}}
-    league_order = list(leagues.keys())
-    div_order = ["East","North","South","West"]
-
-    idx = 0
-    team_names = list(rosters.keys())
-
-    for league_name in league_order:
-        for div_name in div_order:
-            for _ in range(4):  # 4 teams per division
-                if idx >= len(team_names):
-                    break
-                team = Team(team_names[idx])
-                team.players = rosters[team.name]  # assign Player objects from Excel
-                team.qb_starters = [p for p in team.players if p.position=="QB"][:1]
-                team.rb_starters = [p for p in team.players if p.position=="RB"][:2]
-                team.wr_starters = [p for p in team.players if p.position=="WR"][:2]
-                team.te_starters = [p for p in team.players if p.position=="TE"][:2]
-                team.defense_starters = [p for p in team.players if p.position in ["DL","LB","CB","S"]]
-                team.league = league_name
-                team.division = div_name
-                leagues[league_name][div_name].append(team)
-                idx += 1
-
-    teams = [t for l in leagues.values() for d in l.values() for t in d]
-    return teams
-
-
-
-# ============================
-# --- INJURY CHECK FUNCTION ---
-# ============================
-def check_injury(player):
-    # Injuries are rare: 1 in 1000 chance per play * (100 - durability) factor
-    chance = (100 - player.durability) / 100000
-    if random.random() < chance:
-        return True
-    return False
+def create_full_roster(team_name):
+    positions = {
+        "QB":3, "RB":5, "FB":1, "WR":6, "TE":3,
+        "OL":10, "DL":8, "LB":7, "CB":5, "S":4,
+        "K":1, "P":1
+    }
+    players=[]
+    for pos,count in positions.items():
+        for i in range(count):
+            age=random.randint(21,30)
+            skill=random.randint(60,85)
+            name=f"{team_name} {pos}{i+1}"
+            p=Player(name,pos,skill,age)
+            players.append(p)
+    return players
 
 # ============================
 # --- SIMULATE DRIVE ---
@@ -448,84 +402,52 @@ def simulate_drive(offense, defense):
 # ============================
 # --- SIMULATE GAME ---
 # ============================
-STAT_ATTRS = [
-    # Passing
-    "pass_attempts","pass_completions","pass_yards","pass_td","interceptions","longest_pass","sacks_taken",
-    # Rushing
-    "rush_attempts","rush_yards","rush_td","longest_rush","fumbles",
-    # Receiving
-    "rec_targets","rec_catches","rec_yards","rec_td","drops","longest_rec",
-    # Defense
-    "tackles","sacks","qb_pressure","interceptions_def","forced_fumbles","fumble_recoveries","pass_deflections"
-]
-
-def _snapshot_player_stats(players):
-    snap = {}
-    for p in players:
-        snap[p.name] = {attr: getattr(p, attr, 0) for attr in STAT_ATTRS}
-    return snap
-
-def _compute_delta_and_store(team, before_snap, after_players):
-    deltas = {}
-    for p in after_players:
-        name = p.name
-        before = before_snap.get(name, {attr:0 for attr in STAT_ATTRS})
-        delta = {}
-        for attr in STAT_ATTRS:
-            after_val = getattr(p, attr, 0)
-            delta[attr] = after_val - before.get(attr, 0)
-        deltas[name] = delta
-    team.last_game_stats = deltas
-
 def simulate_game(team1, team2, user_team=None):
-    # Take snapshots BEFORE the game (season totals before)
-    before_team1 = _snapshot_player_stats(team1.players)
-    before_team2 = _snapshot_player_stats(team2.players)
-
-    # Do NOT reset player season stats here — we want them to accumulate.
+    # Only reset stats for the teams actually playing
+    for p in team1.players:
+        p.reset_stats()
+    for p in team2.players:
+        p.reset_stats()
+    
     team1.score = 0
     team2.score = 0
-
-    # Number of drives per team (simulates possessions)
+    
+    # Each team gets about 11-13 possessions per game
+    # This will result in ~50-70 plays per team
     drives_per_team = random.randint(11, 13)
-
+    
     for _ in range(drives_per_team):
         simulate_drive(team1, team2)
         simulate_drive(team2, team1)
-
+    
     # Determine winner
     if team1.score > team2.score:
         winner = team1
     elif team2.score > team1.score:
         winner = team2
     else:
-        # Overtime / tie-breaker
+        # Overtime - sudden death field goal
         winner = random.choice([team1, team2])
         winner.score += 3
-
-    # Update team season aggregates
+    
+    # Update team records
     team1.points_for += team1.score
     team1.points_against += team2.score
     team2.points_for += team2.score
     team2.points_against += team1.score
-
+    
     if winner == team1:
         team1.wins += 1
         team2.losses += 1
     else:
         team2.wins += 1
         team1.losses += 1
-
-    # Compute per-player deltas (last game's stats) and store on the team
-    _compute_delta_and_store(team1, before_team1, team1.players)
-    _compute_delta_and_store(team2, before_team2, team2.players)
-
-    # Print result only if user team involved (or no user specified)
+    
+    # Only print if user team is involved
     if user_team is None or user_team in [team1.name, team2.name]:
         print(f"{team1.name} {team1.score} - {team2.name} {team2.score}")
-
+    
     return winner
-
 
 # ============================
 # --- GET TEAM SUMMARY ---
@@ -621,88 +543,6 @@ def print_team_stats(team, games_played):
     for d in defenders:
         table.add_row([d.name,d.tackles,d.sacks,d.qb_pressure,d.interceptions_def,d.forced_fumbles,d.fumble_recoveries,d.pass_deflections])
     print(table)
-
-# ============================
-# --- PRINT LAST GAME STATS ---
-# ============================
-def print_last_game_stats(team):
-    """Print leaders/tables for the last game using team.last_game_stats (deltas)."""
-    if not getattr(team, "last_game_stats", None):
-        print("\nNo last game stats available for this team yet.")
-        return
-
-    lg = team.last_game_stats
-
-    # Passing leaders (last game)
-    print("\n=== LAST GAME: Passing Leaders ===")
-    table = PrettyTable()
-    table.field_names = ["Player","Comp","Att","Yds","TD","INT","Comp%","Y/A","Long"]
-    # find QBs present in last_game_stats
-    qbs = [p for p in team.players if p.position=="QB"]
-    for qb in qbs:
-        d = lg.get(qb.name, {})
-        att = d.get("pass_attempts", 0)
-        comp = d.get("pass_completions", 0)
-        yds = d.get("pass_yards", 0)
-        td = d.get("pass_td", 0)
-        itc = d.get("interceptions", 0)
-        comp_pct = round(100 * comp / att, 1) if att else 0
-        ypa = round(yds / att, 1) if att else 0
-        table.add_row([qb.name, comp, att, yds, td, itc, comp_pct, ypa, d.get("longest_pass", 0)])
-    print(table)
-
-    # Rushing leaders (last game)
-    print("\n=== LAST GAME: Rushing Leaders ===")
-    table = PrettyTable()
-    table.field_names = ["Player","Att","Yds","TD","Y/A","Long"]
-    rbs = [p for p in team.players if p.position=="RB"] + [p for p in team.players if p.position=="QB"]
-    rbs_sorted = sorted(rbs, key=lambda x: lg.get(x.name, {}).get("rush_yards", 0), reverse=True)[:3]
-    for r in rbs_sorted:
-        d = lg.get(r.name, {})
-        att = d.get("rush_attempts", 0)
-        yds = d.get("rush_yards", 0)
-        td = d.get("rush_td", 0)
-        ya = round(yds/att,1) if att else 0
-        table.add_row([r.name, att, yds, td, ya, d.get("longest_rush", 0)])
-    print(table)
-
-    # Receiving leaders (last game)
-    print("\n=== LAST GAME: Receiving Leaders ===")
-    table = PrettyTable()
-    table.field_names = ["Player","Catches","Targets","Yds","TD","Y/R","Drops","Long"]
-    recs = [p for p in team.players if p.position in ["WR","TE","RB"]]
-    recs_sorted = sorted(recs, key=lambda x: lg.get(x.name, {}).get("rec_yards",0), reverse=True)[:6]
-    for r in recs_sorted:
-        d = lg.get(r.name, {})
-        catches = d.get("rec_catches", 0)
-        targets = d.get("rec_targets", 0)
-        yds = d.get("rec_yards", 0)
-        td = d.get("rec_td", 0)
-        ypr = round(yds / catches, 1) if catches else 0
-        table.add_row([r.name, catches, targets, yds, td, ypr, d.get("drops", 0), d.get("longest_rec", 0)])
-    print(table)
-
-    # Defensive leaders (last game)
-    print("\n=== LAST GAME: Defensive Leaders ===")
-    table = PrettyTable()
-    table.field_names = ["Player","Tkl","Sacks","QB Press","INT","FF","FR","PD"]
-    defs = team.defense_starters
-    defs_sorted = sorted(defs, key=lambda x: lg.get(x.name, {}).get("tackles",0)+lg.get(x.name, {}).get("sacks",0), reverse=True)[:5]
-    for d in defs_sorted:
-        sd = lg.get(d.name, {})
-        table.add_row([
-            d.name,
-            sd.get("tackles", 0),
-            sd.get("sacks", 0),
-            sd.get("qb_pressure", 0),
-            sd.get("interceptions_def", 0),
-            sd.get("forced_fumbles", 0),
-            sd.get("fumble_recoveries", 0),
-            sd.get("pass_deflections", 0)
-        ])
-    print(table)
-
-
 
 # ============================
 # --- VIEW STANDINGS ---
@@ -876,24 +716,19 @@ def load_franchise(filename="franchise_save.pkl"):
 # --- CREATE NEW LEAGUE ---
 # ============================
 def create_new_league():
-    team_names = [
-    "Buffalo Bills", "Miami Dolphins", "New England Patriots", "New York Jets",
-    "Baltimore Ravens", "Cincinnati Bengals", "Cleveland Browns", "Pittsburgh Steelers",
-    "Houston Texans", "Indianapolis Colts", "Jacksonville Jaguars", "Tennessee Titans",
-    "Denver Broncos", "Kansas City Chiefs", "Las Vegas Raiders", "Los Angeles Chargers",
-    "Dallas Cowboys", "New York Giants", "Philadelphia Eagles", "Washington Commanders",
-    "Chicago Bears", "Detroit Lions", "Green Bay Packers", "Minnesota Vikings",
-    "Atlanta Falcons", "Carolina Panthers", "New Orleans Saints", "Tampa Bay Buccaneers",
-    "Arizona Cardinals", "Los Angeles Rams", "San Francisco 49ers", "Seattle Seahawks"
-]
-
+    team_names=[
+        "Sharks","Wolves","Eagles","Tigers","Lions","Bears","Panthers","Vikings",
+        "Ravens","Jets","Patriots","Dolphins","Texans","Colts","Steelers","Bengals",
+        "Packers","Falcons","Saints","Buccaneers","Chargers","Raiders","Chiefs","Broncos",
+        "Cardinals","Seahawks","49ers","Rams","Giants","Cowboys","Jaguars","Titans"
+    ]
     leagues={"AFC":{"East":[],"North":[],"South":[],"West":[]},"NFC":{"East":[],"North":[],"South":[],"West":[]}}
     idx=0
     for league_name,divs in leagues.items():
         for div_name in divs:
             for _ in range(4):
                 team = Team(team_names[idx])
-                team.players = load_rosters_from_excel("fake_nfl_rosters.xlsx")
+                team.players = create_full_roster(team.name)
                 team.qb_starters = [p for p in team.players if p.position=="QB"][:1]
                 team.rb_starters = [p for p in team.players if p.position=="RB"][:2]
                 team.wr_starters = [p for p in team.players if p.position=="WR"][:2]
@@ -936,34 +771,27 @@ def run_franchise(franchise):
             user_team = next(t for t in franchise.teams if t.name == franchise.user_team_name)
             
             print("1. Simulate Week")
-            print("2. View Last Game's Stats")        # renamed
-            print("3. View Your Team Season Stats")   # new accumulated season view
-            print("4. View Other Team Stats")
-            print("5. View Standings")
-            print("6. Save Franchise")
-            print("7. Quit")
+            print("2. View Your Team Stats")
+            print("3. View Other Team Stats")
+            print("4. View Standings")
+            print("5. Save Franchise")
+            print("6. Quit")
             choice = input("> ").strip()
-
+            
             if choice == "1":
-                # Simulate all games for the week (shuffle / pairing)
+                # Simulate all games for the week
                 random.shuffle(franchise.teams)
                 for i in range(0, len(franchise.teams), 2):
                     simulate_game(franchise.teams[i], franchise.teams[i+1], user_team=franchise.user_team_name)
-
+                
                 # Show user team summary after each week
                 print_team_summary(user_team, franchise.teams)
                 franchise.current_week += 1
-
+                
             elif choice == "2":
-                # Last game's stats (per-player deltas)
-                print_last_game_stats(user_team)
-
-            elif choice == "3":
-                # Season totals (accumulated)
                 games_played = franchise.current_week - 1
                 print_team_stats(user_team, games_played)
-
-            elif choice == "4":
+            elif choice == "3":
                 games_played = franchise.current_week - 1
                 for idx, t in enumerate(franchise.teams):
                     print(f"{idx+1}. {t.name}")
@@ -973,20 +801,15 @@ def run_franchise(franchise):
                         print_team_stats(franchise.teams[sel], games_played)
                 except:
                     print("Invalid selection.")
-
-            elif choice == "5":
+            elif choice == "4":
                 view_standings(franchise.teams, user_team_name=franchise.user_team_name)
-
+            elif choice == "5":
+                save_franchise(franchise)
             elif choice == "6":
                 save_franchise(franchise)
-
-            elif choice == "7":
-                save_franchise(franchise)
                 return
-
             else:
                 print("Invalid choice.")
-
         
         # Season complete - run playoffs
         print(f"\n{'='*70}")
@@ -1022,24 +845,21 @@ def run_franchise(franchise):
 def main():
     print("=== NFL Franchise Simulator ===")
     print("1. New Game\n2. Load Game")
-    choice = input("> ").strip()
-    if choice == "2":
-        franchise = load_franchise()
+    choice=input("> ").strip()
+    if choice=="2":
+        franchise=load_franchise()
         if franchise is None:
             print("No save file found. Starting new game...")
-            teams = create_new_league()
-            for i, t in enumerate(teams): print(f"{i+1}. {t.name}")
-            sel = int(input("Select your team: ")) - 1
-            franchise = Franchise(teams, teams[sel].name)
+            teams=create_new_league()
+            for i,t in enumerate(teams): print(f"{i+1}. {t.name}")
+            sel=int(input("Select your team: "))-1
+            franchise=Franchise(teams,teams[sel].name)
     else:
-        teams = create_new_league()
-        for i, t in enumerate(teams): print(f"{i+1}. {t.name}")
-        sel = int(input("Select your team: ")) - 1
-        franchise = Franchise(teams, teams[sel].name)
-
-    # Run your franchise menu here
-    # run_franchise(franchise)  # existing function
-
+        teams=create_new_league()
+        for i,t in enumerate(teams): print(f"{i+1}. {t.name}")
+        sel=int(input("Select your team: "))-1
+        franchise=Franchise(teams,teams[sel].name)
+    run_franchise(franchise)
     save_franchise(franchise)
     print("Franchise complete!")
 
