@@ -885,18 +885,20 @@ def run_franchise(franchise):
         print(f"\n{'='*70}")
         print(f"SEASON {franchise.current_season}".center(70))
         print(f"{'='*70}")
-        
-        # Reset season records
-        for t in franchise.teams:
-            t.wins = 0
-            t.losses = 0
-            t.points_for = 0
-            t.points_against = 0
-            t.score = 0
-            # Reset all player stats at start of season
-            for p in t.players:
-                p.reset_stats()
-        
+
+        # Reset season records ONLY if starting a new season (week 1)
+        # This prevents wiping stats when loading a saved game mid-season
+        if franchise.current_week == 1:
+            for t in franchise.teams:
+                t.wins = 0
+                t.losses = 0
+                t.points_for = 0
+                t.points_against = 0
+                t.score = 0
+                # Reset all player stats at start of season
+                for p in t.players:
+                    p.reset_stats()
+
         # Regular season
         while franchise.current_week <= SEASON_GAMES:
             print(f"\n{'='*70}")
