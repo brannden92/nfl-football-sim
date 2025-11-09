@@ -1008,7 +1008,7 @@ def main():
         franchise = Franchise(teams, teams[sel].name)
 
     # Run your franchise menu here
-    # run_franchise(franchise)  # existing function
+    run_franchise(franchise)
 
     save_franchise(franchise)
     print("Franchise complete!")
