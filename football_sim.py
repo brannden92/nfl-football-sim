@@ -672,43 +672,53 @@ class Franchise:
         # Season schedule: list of weekly matchups [(team1, team2), ...]
         if not hasattr(self, 'season_schedule'):
             self.season_schedule = []  # Will be populated at season start
+        # Game results: store all game results for the season
+        if not hasattr(self, 'game_results'):
+            self.game_results = []  # List of game result dictionaries
 
 # ============================
 # --- GENERATE SEASON SCHEDULE ---
 # ============================
 def generate_season_schedule(teams, num_weeks=17):
-    """Generate a season schedule with balanced matchups"""
+    """Generate a season schedule with balanced matchups and home/away designation"""
     import random
 
-    schedule = []  # List of weeks, each week is list of (team1, team2) tuples
+    schedule = []  # List of weeks, each week is list of (home_team, away_team) tuples
     teams_copy = teams.copy()
 
     for week in range(num_weeks):
         week_matchups = []
         random.shuffle(teams_copy)
 
-        # Pair teams for this week
+        # Pair teams for this week (first team is home, second is away)
         for i in range(0, len(teams_copy), 2):
-            week_matchups.append((teams_copy[i], teams_copy[i+1]))
+            # Randomly decide who's home/away
+            if random.random() < 0.5:
+                home_team = teams_copy[i]
+                away_team = teams_copy[i+1]
+            else:
+                home_team = teams_copy[i+1]
+                away_team = teams_copy[i]
+            week_matchups.append((home_team, away_team))
 
         schedule.append(week_matchups)
 
     return schedule
 
 def get_opponent(franchise, team_name):
-    """Get the opponent for a team in the current week"""
+    """Get the opponent for a team in the current week and whether it's home or away"""
     if not franchise.season_schedule or franchise.current_week > len(franchise.season_schedule):
-        return None
+        return None, None
 
     week_matchups = franchise.season_schedule[franchise.current_week - 1]
 
-    for team1, team2 in week_matchups:
-        if team1.name == team_name:
-            return team2
-        elif team2.name == team_name:
-            return team1
+    for home_team, away_team in week_matchups:
+        if home_team.name == team_name:
+            return away_team, "home"  # This team is home
+        elif away_team.name == team_name:
+            return home_team, "away"  # This team is away
 
-    return None
+    return None, None
 
 # ============================
 # --- LOAD ROSTERS FROM EXCEL ---
@@ -1342,10 +1352,21 @@ def simulate_game(team1, team2, user_team=None):
     _compute_delta_and_store(team2, before_team2, team2.players)
 
     # Print result only if user team involved (or no user specified)
+    emoji1 = get_team_emoji(team1.name)
+    emoji2 = get_team_emoji(team2.name)
     if user_team is None or user_team in [team1.name, team2.name]:
-        print(f"{team1.name} {team1.score} - {team2.name} {team2.score}")
+        print(f"{emoji1} {team1.name} {team1.score} - {emoji2} {team2.name} {team2.score}")
 
-    return winner
+    # Return game result information
+    game_result = {
+        'home_team': team1.name,
+        'away_team': team2.name,
+        'home_score': team1.score,
+        'away_score': team2.score,
+        'winner': winner.name
+    }
+
+    return winner, game_result
 
 
 # ============================
@@ -1371,14 +1392,15 @@ def get_team_summary(team, all_teams):
 def print_team_summary(team, all_teams):
     """Print summary of team's current season"""
     div_rank, offense_rank, defense_rank = get_team_summary(team, all_teams)
-    
+
+    emoji = get_team_emoji(team.name)
+    point_diff = team.points_for - team.points_against
+
     print(f"\n{'='*70}")
-    print(f"{'YOUR TEAM: ' + team.name:^70}")
+    print(f"{'YOUR TEAM: ' + emoji + ' ' + team.name:^70}")
     print(f"{'='*70}")
     print(f"Record: {team.wins}-{team.losses} | {team.league} {team.division} | {div_rank}{get_ordinal(div_rank)} in Division")
-    print(f"Points For: {team.points_for} (Rank: {offense_rank}{get_ordinal(offense_rank)})")
-    print(f"Points Against: {team.points_against} (Rank: {defense_rank}{get_ordinal(defense_rank)})")
-    print(f"Point Differential: {team.points_for - team.points_against:+d}")
+    print(f"PF: {team.points_for} ({offense_rank}{get_ordinal(offense_rank)}) | PA: {team.points_against} ({defense_rank}{get_ordinal(defense_rank)}) | PD: {point_diff:+d}")
     print(f"{'='*70}\n")
 
 def get_ordinal(n):
@@ -1550,9 +1572,10 @@ def view_standings(teams, user_team_name=None):
             table.field_names = ["Team", "W", "L", "PF", "PA", "Diff"]
             
             for team in sorted_teams:
+                emoji = get_team_emoji(team.name)
                 marker = " *" if team.name == user_team_name else ""
                 table.add_row([
-                    team.name + marker,
+                    emoji + " " + team.name + marker,
                     team.wins,
                     team.losses,
                     team.points_for,
@@ -1632,16 +1655,18 @@ def view_franchise_history(franchise):
         season_num = season_result['season']
         champion = season_result['champion']
 
+        champ_emoji = get_team_emoji(champion)
         print(f"\n=== SEASON {season_num} ===")
-        print(f"Champion: {champion}")
+        print(f"Champion: {champ_emoji} {champion}")
 
         print("\nFinal Standings (Top 10):")
         table = PrettyTable()
         table.field_names = ["Rank", "Team", "W", "L", "PF", "PA", "Diff"]
 
         for rank, (name, wins, losses, pf, pa) in enumerate(season_result['standings'][:10], 1):
+            emoji = get_team_emoji(name)
             marker = " 🏆" if name == champion else ""
-            table.add_row([rank, name + marker, wins, losses, pf, pa, pf - pa])
+            table.add_row([rank, emoji + " " + name + marker, wins, losses, pf, pa, pf - pa])
 
         print(table)
 
@@ -1843,11 +1868,13 @@ def run_playoffs(franchise):
     
     print("\n=== AFC PLAYOFF TEAMS ===")
     for i, team in enumerate(afc_teams, 1):
-        print(f"{i}. {team.name} ({team.wins}-{team.losses})")
-    
+        emoji = get_team_emoji(team.name)
+        print(f"{i}. {emoji} {team.name} ({team.wins}-{team.losses})")
+
     print("\n=== NFC PLAYOFF TEAMS ===")
     for i, team in enumerate(nfc_teams, 1):
-        print(f"{i}. {team.name} ({team.wins}-{team.losses})")
+        emoji = get_team_emoji(team.name)
+        print(f"{i}. {emoji} {team.name} ({team.wins}-{team.losses})")
     
     input("\nPress Enter to start Wild Card Round...")
 
@@ -1858,23 +1885,31 @@ def run_playoffs(franchise):
 
     # Show teams with first-round BYE
     print("\n*** FIRST ROUND BYE ***")
-    print(f"AFC: {afc_teams[0].name} ({afc_teams[0].wins}-{afc_teams[0].losses})")
-    print(f"NFC: {nfc_teams[0].name} ({nfc_teams[0].wins}-{nfc_teams[0].losses})")
+    afc_bye_emoji = get_team_emoji(afc_teams[0].name)
+    nfc_bye_emoji = get_team_emoji(nfc_teams[0].name)
+    print(f"AFC: {afc_bye_emoji} {afc_teams[0].name} ({afc_teams[0].wins}-{afc_teams[0].losses})")
+    print(f"NFC: {nfc_bye_emoji} {nfc_teams[0].name} ({nfc_teams[0].wins}-{nfc_teams[0].losses})")
 
     afc_wc_winners = []
     nfc_wc_winners = []
 
     print("\n--- AFC Wild Card Games ---")
     # AFC Wild Card (2 vs 7, 3 vs 6, 4 vs 5)
-    afc_wc_winners.append(simulate_game(afc_teams[1], afc_teams[6], user_team=None))
-    afc_wc_winners.append(simulate_game(afc_teams[2], afc_teams[5], user_team=None))
-    afc_wc_winners.append(simulate_game(afc_teams[3], afc_teams[4], user_team=None))
+    winner, _ = simulate_game(afc_teams[1], afc_teams[6], user_team=None)
+    afc_wc_winners.append(winner)
+    winner, _ = simulate_game(afc_teams[2], afc_teams[5], user_team=None)
+    afc_wc_winners.append(winner)
+    winner, _ = simulate_game(afc_teams[3], afc_teams[4], user_team=None)
+    afc_wc_winners.append(winner)
 
     print("\n--- NFC Wild Card Games ---")
     # NFC Wild Card
-    nfc_wc_winners.append(simulate_game(nfc_teams[1], nfc_teams[6], user_team=None))
-    nfc_wc_winners.append(simulate_game(nfc_teams[2], nfc_teams[5], user_team=None))
-    nfc_wc_winners.append(simulate_game(nfc_teams[3], nfc_teams[4], user_team=None))
+    winner, _ = simulate_game(nfc_teams[1], nfc_teams[6], user_team=None)
+    nfc_wc_winners.append(winner)
+    winner, _ = simulate_game(nfc_teams[2], nfc_teams[5], user_team=None)
+    nfc_wc_winners.append(winner)
+    winner, _ = simulate_game(nfc_teams[3], nfc_teams[4], user_team=None)
+    nfc_wc_winners.append(winner)
     
     input("\nPress Enter to continue to Divisional Round...")
     
@@ -1891,12 +1926,16 @@ def run_playoffs(franchise):
     nfc_div_winners = []
 
     print("\n--- AFC Divisional Games ---")
-    afc_div_winners.append(simulate_game(afc_remaining[0], afc_remaining[3], user_team=None))
-    afc_div_winners.append(simulate_game(afc_remaining[1], afc_remaining[2], user_team=None))
+    winner, _ = simulate_game(afc_remaining[0], afc_remaining[3], user_team=None)
+    afc_div_winners.append(winner)
+    winner, _ = simulate_game(afc_remaining[1], afc_remaining[2], user_team=None)
+    afc_div_winners.append(winner)
 
     print("\n--- NFC Divisional Games ---")
-    nfc_div_winners.append(simulate_game(nfc_remaining[0], nfc_remaining[3], user_team=None))
-    nfc_div_winners.append(simulate_game(nfc_remaining[1], nfc_remaining[2], user_team=None))
+    winner, _ = simulate_game(nfc_remaining[0], nfc_remaining[3], user_team=None)
+    nfc_div_winners.append(winner)
+    winner, _ = simulate_game(nfc_remaining[1], nfc_remaining[2], user_team=None)
+    nfc_div_winners.append(winner)
     
     input("\nPress Enter to continue to Conference Championships...")
     
@@ -1906,10 +1945,10 @@ def run_playoffs(franchise):
     print("="*70)
 
     print("\n--- AFC Championship Game ---")
-    afc_champ = simulate_game(afc_div_winners[0], afc_div_winners[1], user_team=None)
+    afc_champ, _ = simulate_game(afc_div_winners[0], afc_div_winners[1], user_team=None)
 
     print("\n--- NFC Championship Game ---")
-    nfc_champ = simulate_game(nfc_div_winners[0], nfc_div_winners[1], user_team=None)
+    nfc_champ, _ = simulate_game(nfc_div_winners[0], nfc_div_winners[1], user_team=None)
 
     input("\nPress Enter to continue to the SUPER BOWL...")
 
@@ -1918,10 +1957,11 @@ def run_playoffs(franchise):
     print("SUPER BOWL".center(70))
     print("="*70 + "\n")
 
-    champion = simulate_game(afc_champ, nfc_champ, user_team=None)
-    
+    champion, _ = simulate_game(afc_champ, nfc_champ, user_team=None)
+
+    emoji = get_team_emoji(champion.name)
     print("\n" + "="*70)
-    print(f"🏆 {champion.name} WIN THE SUPER BOWL! 🏆".center(70))
+    print(f"🏆 {emoji} {champion.name} WIN THE SUPER BOWL! 🏆".center(70))
     print("="*70)
     
     return champion
@@ -2020,6 +2060,10 @@ def load_franchise(filename="franchise_save.pkl"):
         if not hasattr(franchise, 'season_schedule'):
             franchise.season_schedule = []
 
+        # Backward compatibility: Add game results
+        if not hasattr(franchise, 'game_results'):
+            franchise.game_results = []
+
         print(f"Loaded franchise from {filename}")
         return franchise
     except:
@@ -2065,6 +2109,58 @@ def create_new_league():
     return teams
 
 # ============================
+# --- VIEW GAME RESULTS ---
+# ============================
+def view_game_results(franchise):
+    """Display all game results for the current season"""
+    if not franchise.game_results:
+        print("\nNo games have been played yet this season.")
+        return
+
+    # Filter to current season
+    current_season_games = [g for g in franchise.game_results if g.get('season', franchise.current_season) == franchise.current_season]
+
+    if not current_season_games:
+        print("\nNo games have been played yet this season.")
+        return
+
+    print(f"\n{'='*80}")
+    print(f"GAME RESULTS - SEASON {franchise.current_season}".center(80))
+    print(f"{'='*80}")
+
+    # Group games by week
+    weeks = {}
+    for game in current_season_games:
+        week = game['week']
+        if week not in weeks:
+            weeks[week] = []
+        weeks[week].append(game)
+
+    # Display games by week
+    for week_num in sorted(weeks.keys()):
+        print(f"\n{'='*80}")
+        print(f"WEEK {week_num}".center(80))
+        print(f"{'='*80}\n")
+
+        for game in weeks[week_num]:
+            home_emoji = get_team_emoji(game['home_team'])
+            away_emoji = get_team_emoji(game['away_team'])
+            home_score = game['home_score']
+            away_score = game['away_score']
+
+            # Mark winner with *
+            if game['winner'] == game['home_team']:
+                home_mark = "*"
+                away_mark = ""
+            else:
+                home_mark = ""
+                away_mark = "*"
+
+            print(f"{away_emoji} {game['away_team']:25} @ {home_emoji} {game['home_team']:25}  {away_score:3}{away_mark} - {home_score:3}{home_mark}")
+
+    input("\nPress Enter to continue...")
+
+# ============================
 # --- RUN FRANCHISE MENU ---
 # ============================
 def run_franchise(franchise):
@@ -2079,6 +2175,9 @@ def run_franchise(franchise):
         if franchise.current_week == 1:
             # Generate season schedule
             franchise.season_schedule = generate_season_schedule(franchise.teams, SEASON_GAMES)
+
+            # Reset game results for new season
+            franchise.game_results = []
 
             for t in franchise.teams:
                 t.wins = 0
@@ -2099,16 +2198,24 @@ def run_franchise(franchise):
             user_team = next(t for t in franchise.teams if t.name == franchise.user_team_name)
 
             # Display opponent info
-            opponent = get_opponent(franchise, franchise.user_team_name)
+            opponent, home_away = get_opponent(franchise, franchise.user_team_name)
             if opponent:
                 div_rank, offense_rank, defense_rank = get_team_summary(opponent, franchise.teams)
+
+                # Show vs/@ notation
+                user_emoji = get_team_emoji(user_team.name)
+                opp_emoji = get_team_emoji(opponent.name)
+                if home_away == "home":
+                    matchup_str = f"{user_emoji} {user_team.name} vs {opp_emoji} {opponent.name}"
+                else:
+                    matchup_str = f"{user_emoji} {user_team.name} @ {opp_emoji} {opponent.name}"
+
                 print(f"\n{'THIS WEEK\'S MATCHUP':^70}")
                 print(f"{'-'*70}")
-                print(f"Opponent: {opponent.name}")
+                print(f"{matchup_str}")
                 print(f"Record: {opponent.wins}-{opponent.losses} | {opponent.league} {opponent.division} | {div_rank}{get_ordinal(div_rank)} in Division")
-                print(f"Points For: {opponent.points_for} (Rank: {offense_rank}{get_ordinal(offense_rank)})")
-                print(f"Points Against: {opponent.points_against} (Rank: {defense_rank}{get_ordinal(defense_rank)})")
-                print(f"Point Differential: {opponent.points_for - opponent.points_against:+d}")
+                point_diff = opponent.points_for - opponent.points_against
+                print(f"PF: {opponent.points_for} ({offense_rank}{get_ordinal(offense_rank)}) | PA: {opponent.points_against} ({defense_rank}{get_ordinal(defense_rank)}) | PD: {point_diff:+d}")
                 print(f"{'-'*70}\n")
 
             print("1. Simulate Week")
@@ -2119,21 +2226,32 @@ def run_franchise(franchise):
             print("6. View Standings")
             print("7. View Franchise History")
             print("8. View Full Roster")
-            print("9. Save Franchise")
-            print("10. Quit")
+            print("9. View Game Results")
+            print("10. Save Franchise")
+            print("11. Quit")
             choice = input("> ").strip()
 
             if choice == "1":
                 # Simulate all games for the week using the scheduled matchups
+                week_games = []
                 if franchise.season_schedule and franchise.current_week <= len(franchise.season_schedule):
                     week_matchups = franchise.season_schedule[franchise.current_week - 1]
-                    for team1, team2 in week_matchups:
-                        simulate_game(team1, team2, user_team=franchise.user_team_name)
+                    for home_team, away_team in week_matchups:
+                        winner, game_result = simulate_game(home_team, away_team, user_team=franchise.user_team_name)
+                        game_result['week'] = franchise.current_week
+                        game_result['season'] = franchise.current_season
+                        week_games.append(game_result)
                 else:
                     # Fallback to random pairing if schedule not available
                     random.shuffle(franchise.teams)
                     for i in range(0, len(franchise.teams), 2):
-                        simulate_game(franchise.teams[i], franchise.teams[i+1], user_team=franchise.user_team_name)
+                        winner, game_result = simulate_game(franchise.teams[i], franchise.teams[i+1], user_team=franchise.user_team_name)
+                        game_result['week'] = franchise.current_week
+                        game_result['season'] = franchise.current_season
+                        week_games.append(game_result)
+
+                # Store game results
+                franchise.game_results.extend(week_games)
 
                 # Show user team summary after each week
                 print_team_summary(user_team, franchise.teams)
@@ -2155,7 +2273,8 @@ def run_franchise(franchise):
             elif choice == "5":
                 games_played = franchise.current_week - 1
                 for idx, t in enumerate(franchise.teams):
-                    print(f"{idx+1}. {t.name}")
+                    emoji = get_team_emoji(t.name)
+                    print(f"{idx+1}. {emoji} {t.name}")
                 try:
                     sel = int(input("Select team: ")) - 1
                     if 0 <= sel < len(franchise.teams):
@@ -2174,9 +2293,13 @@ def run_franchise(franchise):
                 view_full_roster(user_team, current_week=franchise.current_week)
 
             elif choice == "9":
-                save_franchise(franchise)
+                # View game results
+                view_game_results(franchise)
 
             elif choice == "10":
+                save_franchise(franchise)
+
+            elif choice == "11":
                 save_franchise(franchise)
                 return
 
