@@ -322,6 +322,13 @@ class Player:
                 self.elusiveness = min(99, max(50, self.skill + variance))
                 self.elusiveness_potential = min(99, self.elusiveness + random.randint(5, 15))
 
+        elif self.position == "OL":
+            self.pass_blocking = min(99, max(50, self.skill + variance))
+            self.pass_blocking_potential = min(99, self.pass_blocking + random.randint(5, 15))
+
+            self.run_blocking = min(99, max(50, self.skill + variance))
+            self.run_blocking_potential = min(99, self.run_blocking + random.randint(5, 15))
+
         elif self.position in ["DL", "LB", "CB", "S"]:
             self.tackling = min(99, max(50, self.skill + variance))
             self.tackling_potential = min(99, self.tackling + random.randint(5, 15))
@@ -345,6 +352,8 @@ class Player:
             attributes.extend(['catching', 'route_running'])
             if self.position == "RB":
                 attributes.extend(['carrying', 'elusiveness'])
+        elif self.position == "OL":
+            attributes.extend(['pass_blocking', 'run_blocking'])
         elif self.position in ["DL", "LB", "CB", "S"]:
             attributes.extend(['tackling', 'coverage'])
             if self.position in ["DL", "LB"]:
@@ -371,6 +380,8 @@ class Player:
             attributes.extend(['catching', 'route_running'])
             if self.position == "RB":
                 attributes.extend(['carrying', 'elusiveness'])
+        elif self.position == "OL":
+            attributes.extend(['pass_blocking', 'run_blocking'])
         elif self.position in ["DL", "LB", "CB", "S"]:
             attributes.extend(['tackling', 'coverage'])
             if self.position in ["DL", "LB"]:
@@ -514,6 +525,10 @@ class Player:
                 self._progress_attribute('carrying', 'carrying_potential', attr_progression)
                 self._progress_attribute('elusiveness', 'elusiveness_potential', attr_progression)
 
+        elif self.position == "OL":
+            self._progress_attribute('pass_blocking', 'pass_blocking_potential', attr_progression)
+            self._progress_attribute('run_blocking', 'run_blocking_potential', attr_progression)
+
         elif self.position in ["DL", "LB", "CB", "S"]:
             self._progress_attribute('tackling', 'tackling_potential', attr_progression)
             self._progress_attribute('coverage', 'coverage_potential', attr_progression)
@@ -583,6 +598,12 @@ class Player:
                 if hasattr(self, 'elusiveness_potential'):
                     potentials.append(self.elusiveness_potential)
 
+        elif self.position == "OL":
+            if hasattr(self, 'pass_blocking_potential'):
+                potentials.append(self.pass_blocking_potential)
+            if hasattr(self, 'run_blocking_potential'):
+                potentials.append(self.run_blocking_potential)
+
         elif self.position in ["DL", "LB", "CB", "S"]:
             if hasattr(self, 'tackling_potential'):
                 potentials.append(self.tackling_potential)
@@ -611,6 +632,7 @@ class Team:
         self.rb_starters = []
         self.wr_starters = []
         self.te_starters = []
+        self.ol_starters = []
         self.defense_starters = []
         self.score = 0
         self.wins = 0
@@ -729,6 +751,7 @@ def generate_draft_prospects(num_prospects=350):
         "RB": 35,
         "WR": 60,
         "TE": 25,
+        "OL": 50,
         "DL": 65,
         "LB": 60,
         "CB": 50,
@@ -791,7 +814,7 @@ def run_scouting(franchise):
         if choice == "1":
             # View prospects by position
             print("\nSelect Position:")
-            positions = ["QB", "RB", "WR", "TE", "DL", "LB", "CB", "S", "ALL"]
+            positions = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S", "ALL"]
             for idx, pos in enumerate(positions, 1):
                 print(f"{idx}. {pos}")
 
@@ -860,6 +883,8 @@ def run_scouting(franchise):
                             key_attr = f"Pwr:{prospect.get_draft_rating('throw_power', pts)}"
                         elif prospect.position in ["RB", "WR", "TE"]:
                             key_attr = f"Catch:{prospect.get_draft_rating('catching', pts)}"
+                        elif prospect.position == "OL":
+                            key_attr = f"Pass:{prospect.get_draft_rating('pass_blocking', pts)}"
                         else:  # Defense
                             key_attr = f"Tack:{prospect.get_draft_rating('tackling', pts)}"
 
@@ -907,6 +932,9 @@ def view_draft_prospects(prospects, scouting_investment):
         elif prospect.position in ["RB", "WR", "TE"]:
             attr1 = prospect.get_draft_rating('catching', scout_pts) or 'N/A'
             key_attr = f"Catch:{attr1}"
+        elif prospect.position == "OL":
+            attr1 = prospect.get_draft_rating('pass_blocking', scout_pts) or 'N/A'
+            key_attr = f"Pass:{attr1}"
         else:  # Defense
             attr1 = prospect.get_draft_rating('tackling', scout_pts) or 'N/A'
             key_attr = f"Tack:{attr1}"
@@ -1050,6 +1078,8 @@ def draft_player(team, prospect, available_prospects, round_num, pick_num, overa
         team.wr_starters.append(prospect)
     elif prospect.position == "TE" and len(team.te_starters) < 3:
         team.te_starters.append(prospect)
+    elif prospect.position == "OL" and len(team.ol_starters) < 5:
+        team.ol_starters.append(prospect)
     elif prospect.position in ["DL", "LB", "CB", "S"]:
         team.defense_starters.append(prospect)
 
@@ -1522,7 +1552,7 @@ def view_full_roster(team, current_week=17):
     print(f"{'='*100}")
 
     # Group by position
-    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "DL": [], "LB": [], "CB": [], "S": []}
+    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "OL": [], "DL": [], "LB": [], "CB": [], "S": []}
 
     for player in team.players:
         if player.position in positions:
@@ -1578,6 +1608,19 @@ def view_full_roster(team, current_week=17):
                     p.get_scouted_rating('route_running', current_week) or 'N/A'
                 ])
 
+        elif position == "OL":
+            table.field_names = ["Depth", "Name", "Age", "Skill", "Potential", "Speed", "Strength", "Pass Block", "Run Block"]
+            for idx, p in enumerate(players_sorted, 1):
+                depth = f"#{idx}"
+                name_display = p.name + (" (R)" if p.is_rookie else "")
+                table.add_row([
+                    depth, name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('pass_blocking', current_week) or 'N/A',
+                    p.get_scouted_rating('run_blocking', current_week) or 'N/A'
+                ])
+
         elif position in ["DL", "LB", "CB", "S"]:
             table.field_names = ["Depth", "Name", "Age", "Skill", "Potential", "Speed", "Strength", "Tackling", "Coverage"]
             for idx, p in enumerate(players_sorted, 1):
@@ -1603,7 +1646,7 @@ def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_
     print(f"{'='*100}")
 
     # Group by position
-    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "DL": [], "LB": [], "CB": [], "S": []}
+    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "OL": [], "DL": [], "LB": [], "CB": [], "S": []}
 
     for player in team.players:
         if player.position in positions:
@@ -1654,6 +1697,18 @@ def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_
                     p.get_scouted_rating('strength', current_week) or 'N/A',
                     p.get_scouted_rating('catching', current_week) or 'N/A',
                     p.get_scouted_rating('route_running', current_week) or 'N/A'
+                ])
+
+        elif position == "OL":
+            table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Pass Block", "Run Block"]
+            for p in players_sorted:
+                name_display = p.name + (" (R)" if p.is_rookie else "")
+                table.add_row([
+                    name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('pass_blocking', current_week) or 'N/A',
+                    p.get_scouted_rating('run_blocking', current_week) or 'N/A'
                 ])
 
         elif position in ["DL", "LB", "CB", "S"]:
@@ -1897,6 +1952,7 @@ def create_new_league():
                 team.rb_starters = [p for p in team.players if p.position=="RB"][:2]
                 team.wr_starters = [p for p in team.players if p.position=="WR"][:2]
                 team.te_starters = [p for p in team.players if p.position=="TE"][:2]
+                team.ol_starters = [p for p in team.players if p.position=="OL"][:5]
                 team.defense_starters = [p for p in team.players if p.position in ["DL","LB","CB","S"]]
                 team.league = league_name
                 team.division = div_name
