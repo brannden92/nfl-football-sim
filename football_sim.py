@@ -808,7 +808,8 @@ def run_scouting(franchise):
         print("\n1. View Prospects (by position)")
         print("2. Invest Scouting Points")
         print("3. View Scouted Players")
-        print("4. Continue to Draft")
+        print("4. Auto Scout (use remaining points)")
+        print("5. Continue to Draft")
         choice = input("> ").strip()
 
         if choice == "1":
@@ -896,13 +897,69 @@ def run_scouting(franchise):
                             speed,
                             strength,
                             key_attr,
-                            f"★{pts}"
+                            get_scout_indicator(pts)
                         ])
 
                 print(table)
 
         elif choice == "4":
+            # Auto scout - use remaining points on top prospects
+            if franchise.scouting_points <= 0:
+                print("\nNo scouting points remaining!")
+                continue
+
+            print(f"\nAuto-scouting will invest your remaining {franchise.scouting_points} points in top prospects.")
+            print("Strategy: Invest 3 points in best players, then 1 point in next best.")
+            confirm = input("Continue? (y/n): ").strip().lower()
+
+            if confirm == 'y':
+                # Sort all prospects by skill (best first)
+                sorted_prospects = sorted(franchise.draft_prospects, key=lambda p: p.skill, reverse=True)
+
+                scouted_count = 0
+                for prospect in sorted_prospects:
+                    if franchise.scouting_points <= 0:
+                        break
+
+                    current_investment = franchise.scouting_investment.get(prospect.name, 0)
+
+                    # Skip if already fully scouted
+                    if current_investment >= 3:
+                        continue
+
+                    # Try to invest 3 points if possible
+                    if franchise.scouting_points >= 3 and current_investment == 0:
+                        franchise.scouting_points -= 3
+                        franchise.scouting_investment[prospect.name] = 3
+                        scouted_count += 1
+                    # Try to upgrade 1 point to 3 points
+                    elif franchise.scouting_points >= 2 and current_investment == 1:
+                        franchise.scouting_points -= 2
+                        franchise.scouting_investment[prospect.name] = 3
+                        scouted_count += 1
+                    # Otherwise invest 1 point if possible
+                    elif franchise.scouting_points >= 1 and current_investment == 0:
+                        franchise.scouting_points -= 1
+                        franchise.scouting_investment[prospect.name] = 1
+                        scouted_count += 1
+
+                print(f"\nAuto-scout complete! Scouted {scouted_count} prospects.")
+                print(f"Remaining points: {franchise.scouting_points}")
+
+        elif choice == "5":
             break
+
+# ============================
+# --- SCOUT INDICATOR HELPER ---
+# ============================
+def get_scout_indicator(scout_pts):
+    """Return asterisk indicator based on scouting investment"""
+    if scout_pts >= 3:
+        return "**"  # 3 points = 2 asterisks
+    elif scout_pts >= 1:
+        return "*"   # 1 point = 1 asterisk
+    else:
+        return "-"   # No investment
 
 # ============================
 # --- VIEW DRAFT PROSPECTS ---
@@ -948,7 +1005,7 @@ def view_draft_prospects(prospects, scouting_investment):
             prospect.get_draft_rating('speed', scout_pts) or 'N/A',
             prospect.get_draft_rating('strength', scout_pts) or 'N/A',
             key_attr,
-            f"★{scout_pts}" if scout_pts > 0 else "-"
+            get_scout_indicator(scout_pts)
         ])
 
     print(table)
