@@ -647,6 +647,46 @@ class Franchise:
             self.draft_prospects = []  # Will be populated before draft
         if not hasattr(self, 'scouting_investment'):
             self.scouting_investment = {}  # {player_name: points_spent}
+        # Season schedule: list of weekly matchups [(team1, team2), ...]
+        if not hasattr(self, 'season_schedule'):
+            self.season_schedule = []  # Will be populated at season start
+
+# ============================
+# --- GENERATE SEASON SCHEDULE ---
+# ============================
+def generate_season_schedule(teams, num_weeks=17):
+    """Generate a season schedule with balanced matchups"""
+    import random
+
+    schedule = []  # List of weeks, each week is list of (team1, team2) tuples
+    teams_copy = teams.copy()
+
+    for week in range(num_weeks):
+        week_matchups = []
+        random.shuffle(teams_copy)
+
+        # Pair teams for this week
+        for i in range(0, len(teams_copy), 2):
+            week_matchups.append((teams_copy[i], teams_copy[i+1]))
+
+        schedule.append(week_matchups)
+
+    return schedule
+
+def get_opponent(franchise, team_name):
+    """Get the opponent for a team in the current week"""
+    if not franchise.season_schedule or franchise.current_week > len(franchise.season_schedule):
+        return None
+
+    week_matchups = franchise.season_schedule[franchise.current_week - 1]
+
+    for team1, team2 in week_matchups:
+        if team1.name == team_name:
+            return team2
+        elif team2.name == team_name:
+            return team1
+
+    return None
 
 # ============================
 # --- LOAD ROSTERS FROM EXCEL ---
@@ -1473,6 +1513,87 @@ def view_franchise_history(franchise):
         print(table)
 
 # ============================
+# --- VIEW FULL ROSTER ---
+# ============================
+def view_full_roster(team, current_week=17):
+    """Display full roster with ratings and depth chart positions"""
+    print(f"\n{'='*100}")
+    print(f"FULL ROSTER: {team.name}".center(100))
+    print(f"{'='*100}")
+
+    # Group by position
+    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "DL": [], "LB": [], "CB": [], "S": []}
+
+    for player in team.players:
+        if player.position in positions:
+            positions[player.position].append(player)
+
+    for position, players in positions.items():
+        if not players:
+            continue
+
+        # Sort by skill to determine depth chart
+        players_sorted = sorted(players, key=lambda p: p.skill, reverse=True)
+
+        print(f"\n=== {position} ===")
+        table = PrettyTable()
+
+        # Determine columns based on position
+        if position == "QB":
+            table.field_names = ["Depth", "Name", "Age", "Skill", "Potential", "Speed", "Strength", "Throw Pwr", "Throw Acc"]
+            for idx, p in enumerate(players_sorted, 1):
+                depth = f"#{idx}"
+                name_display = p.name + (" (R)" if p.is_rookie else "")
+                table.add_row([
+                    depth, name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('throw_power', current_week) or 'N/A',
+                    p.get_scouted_rating('throw_accuracy', current_week) or 'N/A'
+                ])
+
+        elif position == "RB":
+            table.field_names = ["Depth", "Name", "Age", "Skill", "Potential", "Speed", "Strength", "Elusiveness", "Carrying"]
+            for idx, p in enumerate(players_sorted, 1):
+                depth = f"#{idx}"
+                name_display = p.name + (" (R)" if p.is_rookie else "")
+                table.add_row([
+                    depth, name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('elusiveness', current_week) or 'N/A',
+                    p.get_scouted_rating('carrying', current_week) or 'N/A'
+                ])
+
+        elif position in ["WR", "TE"]:
+            table.field_names = ["Depth", "Name", "Age", "Skill", "Potential", "Speed", "Strength", "Catching", "Route Run"]
+            for idx, p in enumerate(players_sorted, 1):
+                depth = f"#{idx}"
+                name_display = p.name + (" (R)" if p.is_rookie else "")
+                table.add_row([
+                    depth, name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('catching', current_week) or 'N/A',
+                    p.get_scouted_rating('route_running', current_week) or 'N/A'
+                ])
+
+        elif position in ["DL", "LB", "CB", "S"]:
+            table.field_names = ["Depth", "Name", "Age", "Skill", "Potential", "Speed", "Strength", "Tackling", "Coverage"]
+            for idx, p in enumerate(players_sorted, 1):
+                depth = f"#{idx}"
+                name_display = p.name + (" (R)" if p.is_rookie else "")
+                table.add_row([
+                    depth, name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('tackling', current_week) or 'N/A',
+                    p.get_scouted_rating('coverage', current_week) or 'N/A'
+                ])
+
+        print(table)
+
+# ============================
 # --- VIEW PLAYER ATTRIBUTE PROGRESSION ---
 # ============================
 def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_week=17):
@@ -1737,6 +1858,10 @@ def load_franchise(filename="franchise_save.pkl"):
         if not hasattr(franchise, 'scouting_investment'):
             franchise.scouting_investment = {}
 
+        # Backward compatibility: Add season schedule
+        if not hasattr(franchise, 'season_schedule'):
+            franchise.season_schedule = []
+
         print(f"Loaded franchise from {filename}")
         return franchise
     except:
@@ -1793,6 +1918,9 @@ def run_franchise(franchise):
         # Reset season records ONLY if starting a new season (week 1)
         # This prevents wiping stats when loading a saved game mid-season
         if franchise.current_week == 1:
+            # Generate season schedule
+            franchise.season_schedule = generate_season_schedule(franchise.teams, SEASON_GAMES)
+
             for t in franchise.teams:
                 t.wins = 0
                 t.losses = 0
@@ -1808,8 +1936,21 @@ def run_franchise(franchise):
             print(f"\n{'='*70}")
             print(f"WEEK {franchise.current_week}".center(70))
             print(f"{'='*70}")
-            
+
             user_team = next(t for t in franchise.teams if t.name == franchise.user_team_name)
+
+            # Display opponent info
+            opponent = get_opponent(franchise, franchise.user_team_name)
+            if opponent:
+                div_rank, offense_rank, defense_rank = get_team_summary(opponent, franchise.teams)
+                print(f"\n{'THIS WEEK\'S MATCHUP':^70}")
+                print(f"{'-'*70}")
+                print(f"Opponent: {opponent.name}")
+                print(f"Record: {opponent.wins}-{opponent.losses} | {opponent.league} {opponent.division} | {div_rank}{get_ordinal(div_rank)} in Division")
+                print(f"Points For: {opponent.points_for} (Rank: {offense_rank}{get_ordinal(offense_rank)})")
+                print(f"Points Against: {opponent.points_against} (Rank: {defense_rank}{get_ordinal(defense_rank)})")
+                print(f"Point Differential: {opponent.points_for - opponent.points_against:+d}")
+                print(f"{'-'*70}\n")
 
             print("1. Simulate Week")
             print("2. View Last Game's Stats")
@@ -1818,15 +1959,22 @@ def run_franchise(franchise):
             print("5. View Other Team Stats")
             print("6. View Standings")
             print("7. View Franchise History")
-            print("8. Save Franchise")
-            print("9. Quit")
+            print("8. View Full Roster")
+            print("9. Save Franchise")
+            print("10. Quit")
             choice = input("> ").strip()
 
             if choice == "1":
-                # Simulate all games for the week (shuffle / pairing)
-                random.shuffle(franchise.teams)
-                for i in range(0, len(franchise.teams), 2):
-                    simulate_game(franchise.teams[i], franchise.teams[i+1], user_team=franchise.user_team_name)
+                # Simulate all games for the week using the scheduled matchups
+                if franchise.season_schedule and franchise.current_week <= len(franchise.season_schedule):
+                    week_matchups = franchise.season_schedule[franchise.current_week - 1]
+                    for team1, team2 in week_matchups:
+                        simulate_game(team1, team2, user_team=franchise.user_team_name)
+                else:
+                    # Fallback to random pairing if schedule not available
+                    random.shuffle(franchise.teams)
+                    for i in range(0, len(franchise.teams), 2):
+                        simulate_game(franchise.teams[i], franchise.teams[i+1], user_team=franchise.user_team_name)
 
                 # Show user team summary after each week
                 print_team_summary(user_team, franchise.teams)
@@ -1863,9 +2011,13 @@ def run_franchise(franchise):
                 view_franchise_history(franchise)
 
             elif choice == "8":
-                save_franchise(franchise)
+                # View full roster with ratings
+                view_full_roster(user_team, current_week=franchise.current_week)
 
             elif choice == "9":
+                save_franchise(franchise)
+
+            elif choice == "10":
                 save_franchise(franchise)
                 return
 
