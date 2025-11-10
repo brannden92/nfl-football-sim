@@ -1767,6 +1767,23 @@ def view_full_roster(team, current_week=17):
 # ============================
 # --- VIEW PLAYER ATTRIBUTE PROGRESSION ---
 # ============================
+def format_attr_with_change(current, prev_attr_name, player):
+    """Format attribute value with change indicator"""
+    if current == 'N/A':
+        return 'N/A'
+
+    prev = getattr(player, prev_attr_name, None)
+    if prev is None:
+        return str(current)
+
+    change = current - prev
+    if change > 0:
+        return f"{current} (+{change})"
+    elif change < 0:
+        return f"{current} ({change})"
+    else:
+        return str(current)
+
 def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_week=17):
     """Display player attributes and potentials (with scouting accuracy for rookies)"""
     print(f"\n{'='*100}")
@@ -1795,60 +1812,80 @@ def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_
             for p in players_sorted:
                 # Add rookie indicator if applicable
                 name_display = p.name + (" (R)" if p.is_rookie else "")
+                speed = p.get_scouted_rating('speed', current_week)
+                strength = p.get_scouted_rating('strength', current_week)
+                throw_power = p.get_scouted_rating('throw_power', current_week)
+                throw_accuracy = p.get_scouted_rating('throw_accuracy', current_week)
                 table.add_row([
                     name_display, p.age, p.skill, p.get_overall_potential(),
-                    p.get_scouted_rating('speed', current_week) or 'N/A',
-                    p.get_scouted_rating('strength', current_week) or 'N/A',
-                    p.get_scouted_rating('throw_power', current_week) or 'N/A',
-                    p.get_scouted_rating('throw_accuracy', current_week) or 'N/A'
+                    format_attr_with_change(speed, 'prev_speed', p),
+                    format_attr_with_change(strength, 'prev_strength', p),
+                    format_attr_with_change(throw_power, 'prev_throw_power', p),
+                    format_attr_with_change(throw_accuracy, 'prev_throw_accuracy', p)
                 ])
 
         elif position == "RB":
             table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Elusiveness", "Carrying"]
             for p in players_sorted:
                 name_display = p.name + (" (R)" if p.is_rookie else "")
+                speed = p.get_scouted_rating('speed', current_week)
+                strength = p.get_scouted_rating('strength', current_week)
+                elusiveness = p.get_scouted_rating('elusiveness', current_week)
+                carrying = p.get_scouted_rating('carrying', current_week)
                 table.add_row([
                     name_display, p.age, p.skill, p.get_overall_potential(),
-                    p.get_scouted_rating('speed', current_week) or 'N/A',
-                    p.get_scouted_rating('strength', current_week) or 'N/A',
-                    p.get_scouted_rating('elusiveness', current_week) or 'N/A',
-                    p.get_scouted_rating('carrying', current_week) or 'N/A'
+                    format_attr_with_change(speed, 'prev_speed', p),
+                    format_attr_with_change(strength, 'prev_strength', p),
+                    format_attr_with_change(elusiveness, 'prev_elusiveness', p),
+                    format_attr_with_change(carrying, 'prev_carrying', p)
                 ])
 
         elif position in ["WR", "TE"]:
             table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Catching", "Route Run"]
             for p in players_sorted:
                 name_display = p.name + (" (R)" if p.is_rookie else "")
+                speed = p.get_scouted_rating('speed', current_week)
+                strength = p.get_scouted_rating('strength', current_week)
+                catching = p.get_scouted_rating('catching', current_week)
+                route_running = p.get_scouted_rating('route_running', current_week)
                 table.add_row([
                     name_display, p.age, p.skill, p.get_overall_potential(),
-                    p.get_scouted_rating('speed', current_week) or 'N/A',
-                    p.get_scouted_rating('strength', current_week) or 'N/A',
-                    p.get_scouted_rating('catching', current_week) or 'N/A',
-                    p.get_scouted_rating('route_running', current_week) or 'N/A'
+                    format_attr_with_change(speed, 'prev_speed', p),
+                    format_attr_with_change(strength, 'prev_strength', p),
+                    format_attr_with_change(catching, 'prev_catching', p),
+                    format_attr_with_change(route_running, 'prev_route_running', p)
                 ])
 
         elif position == "OL":
             table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Pass Block", "Run Block"]
             for p in players_sorted:
                 name_display = p.name + (" (R)" if p.is_rookie else "")
+                speed = p.get_scouted_rating('speed', current_week)
+                strength = p.get_scouted_rating('strength', current_week)
+                pass_blocking = p.get_scouted_rating('pass_blocking', current_week)
+                run_blocking = p.get_scouted_rating('run_blocking', current_week)
                 table.add_row([
                     name_display, p.age, p.skill, p.get_overall_potential(),
-                    p.get_scouted_rating('speed', current_week) or 'N/A',
-                    p.get_scouted_rating('strength', current_week) or 'N/A',
-                    p.get_scouted_rating('pass_blocking', current_week) or 'N/A',
-                    p.get_scouted_rating('run_blocking', current_week) or 'N/A'
+                    format_attr_with_change(speed, 'prev_speed', p),
+                    format_attr_with_change(strength, 'prev_strength', p),
+                    format_attr_with_change(pass_blocking, 'prev_pass_blocking', p),
+                    format_attr_with_change(run_blocking, 'prev_run_blocking', p)
                 ])
 
         elif position in ["DL", "LB", "CB", "S"]:
             table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Tackling", "Coverage"]
             for p in players_sorted:
                 name_display = p.name + (" (R)" if p.is_rookie else "")
+                speed = p.get_scouted_rating('speed', current_week)
+                strength = p.get_scouted_rating('strength', current_week)
+                tackling = p.get_scouted_rating('tackling', current_week)
+                coverage = p.get_scouted_rating('coverage', current_week)
                 table.add_row([
                     name_display, p.age, p.skill, p.get_overall_potential(),
-                    p.get_scouted_rating('speed', current_week) or 'N/A',
-                    p.get_scouted_rating('strength', current_week) or 'N/A',
-                    p.get_scouted_rating('tackling', current_week) or 'N/A',
-                    p.get_scouted_rating('coverage', current_week) or 'N/A'
+                    format_attr_with_change(speed, 'prev_speed', p),
+                    format_attr_with_change(strength, 'prev_strength', p),
+                    format_attr_with_change(tackling, 'prev_tackling', p),
+                    format_attr_with_change(coverage, 'prev_coverage', p)
                 ])
 
         print(table)
@@ -2306,17 +2343,36 @@ def run_franchise(franchise):
             else:
                 print("Invalid choice.")
 
-        
+
         # Season complete - run playoffs
         print(f"\n{'='*70}")
         print("REGULAR SEASON COMPLETE".center(70))
         print(f"{'='*70}")
         view_standings(franchise.teams, user_team_name=franchise.user_team_name)
-        
+
+        # Save regular season records BEFORE playoffs (for draft order)
+        regular_season_records = {}
+        for team in franchise.teams:
+            regular_season_records[team.name] = {
+                'wins': team.wins,
+                'losses': team.losses,
+                'points_for': team.points_for,
+                'points_against': team.points_against
+            }
+
         input("\nPress Enter to start the playoffs...")
         champion = run_playoffs(franchise)
 
-        # Save season results to history
+        # Restore regular season records (playoff games don't count for standings/draft)
+        for team in franchise.teams:
+            if team.name in regular_season_records:
+                record = regular_season_records[team.name]
+                team.wins = record['wins']
+                team.losses = record['losses']
+                team.points_for = record['points_for']
+                team.points_against = record['points_against']
+
+        # Save season results to history (using regular season records)
         season_result = {
             'season': franchise.current_season,
             'champion': champion.name,
@@ -2348,6 +2404,30 @@ def run_franchise(franchise):
         # Accumulate season stats to career stats BEFORE progression
         for team in franchise.teams:
             for player in team.players:
+                # Save previous year's attributes before progression
+                player.prev_speed = getattr(player, 'speed', player.skill)
+                player.prev_strength = getattr(player, 'strength', player.skill)
+                player.prev_awareness = getattr(player, 'awareness', player.skill)
+
+                # Save position-specific attributes
+                if player.position == "QB":
+                    player.prev_throw_power = getattr(player, 'throw_power', player.skill)
+                    player.prev_throw_accuracy = getattr(player, 'throw_accuracy', player.skill)
+                elif player.position in ["RB", "WR", "TE"]:
+                    player.prev_catching = getattr(player, 'catching', player.skill)
+                    player.prev_route_running = getattr(player, 'route_running', player.skill)
+                    if player.position == "RB":
+                        player.prev_carrying = getattr(player, 'carrying', player.skill)
+                        player.prev_elusiveness = getattr(player, 'elusiveness', player.skill)
+                elif player.position == "OL":
+                    player.prev_pass_blocking = getattr(player, 'pass_blocking', player.skill)
+                    player.prev_run_blocking = getattr(player, 'run_blocking', player.skill)
+                elif player.position in ["DL", "LB", "CB", "S"]:
+                    player.prev_tackling = getattr(player, 'tackling', player.skill)
+                    player.prev_coverage = getattr(player, 'coverage', player.skill)
+                    if player.position in ["DL", "LB"]:
+                        player.prev_pass_rush = getattr(player, 'pass_rush', player.skill)
+
                 player.accumulate_to_career()
                 player.progress()
                 if player.should_retire() and not player.retired:
