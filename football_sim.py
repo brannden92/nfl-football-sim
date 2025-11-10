@@ -359,6 +359,59 @@ class Player:
                 else:
                     self.scouting_variance[attr] = random.randint(-15, 15)
 
+    def _initialize_draft_scouting(self):
+        """Initialize scouting variance for draft prospects"""
+        # Store base variance for draft display
+        attributes = ['speed', 'strength', 'awareness']
+
+        # Position-specific attributes
+        if self.position == "QB":
+            attributes.extend(['throw_power', 'throw_accuracy'])
+        elif self.position in ["RB", "WR", "TE"]:
+            attributes.extend(['catching', 'route_running'])
+            if self.position == "RB":
+                attributes.extend(['carrying', 'elusiveness'])
+        elif self.position in ["DL", "LB", "CB", "S"]:
+            attributes.extend(['tackling', 'coverage'])
+            if self.position in ["DL", "LB"]:
+                attributes.append('pass_rush')
+
+        # Assign base variance (tier 0 - no scouting investment)
+        for attr in attributes:
+            if hasattr(self, attr):
+                if attr in ['speed', 'throw_power']:
+                    self.scouting_variance[attr] = random.randint(-5, 5)
+                else:
+                    self.scouting_variance[attr] = random.randint(-15, 15)
+
+    def get_draft_rating(self, attribute_name, scout_points_invested=0):
+        """Get scouted rating for draft prospects based on scout points invested"""
+        if not hasattr(self, attribute_name):
+            return None
+
+        actual_value = getattr(self, attribute_name)
+        base_variance = self.scouting_variance.get(attribute_name, 0)
+
+        # Determine variance scaling based on scout points
+        if scout_points_invested >= 3:
+            # 3 points: ±1 speed/throw_power, ±5 other
+            if attribute_name in ['speed', 'throw_power']:
+                scale = 0.2  # 1/5
+            else:
+                scale = 0.33  # 5/15
+        elif scout_points_invested >= 1:
+            # 1 point: ±3 speed/throw_power, ±10 other
+            if attribute_name in ['speed', 'throw_power']:
+                scale = 0.6  # 3/5
+            else:
+                scale = 0.67  # 10/15
+        else:
+            # 0 points: ±5 speed/throw_power, ±15 other (full variance)
+            scale = 1.0
+
+        adjusted_variance = int(base_variance * scale)
+        return max(50, min(99, actual_value + adjusted_variance))
+
     def get_scouted_rating(self, attribute_name, current_week=1):
         """Get the scouted rating for an attribute based on current week (rookies only)"""
         if not hasattr(self, attribute_name):
@@ -543,6 +596,13 @@ class Franchise:
         # Season history: list of dicts with season results
         if not hasattr(self, 'season_history'):
             self.season_history = []
+        # Draft and scouting
+        if not hasattr(self, 'scouting_points'):
+            self.scouting_points = 100  # Starting scouting points
+        if not hasattr(self, 'draft_prospects'):
+            self.draft_prospects = []  # Will be populated before draft
+        if not hasattr(self, 'scouting_investment'):
+            self.scouting_investment = {}  # {player_name: points_spent}
 
 # ============================
 # --- LOAD ROSTERS FROM EXCEL ---
@@ -572,11 +632,318 @@ def load_rosters_from_excel(filename="fake_nfl_rosters.xlsx"):
 
     return teams  # dict: {team_name: [Player, Player, ...]}
 
+# ============================
+# --- GENERATE DRAFT PROSPECTS ---
+# ============================
+def generate_draft_prospects(num_prospects=350):
+    """Generate rookies for the draft with varied skill levels"""
+    prospects = []
 
+    # Position distribution (roughly realistic)
+    position_distribution = {
+        "QB": 25,
+        "RB": 35,
+        "WR": 60,
+        "TE": 25,
+        "DL": 65,
+        "LB": 60,
+        "CB": 50,
+        "S": 30
+    }
 
+    # Generate players for each position
+    prospect_id = 1
+    for position, count in position_distribution.items():
+        for i in range(count):
+            # Skill distribution: more mid-tier players, fewer stars
+            rand_val = random.random()
+            if rand_val < 0.05:  # 5% elite prospects
+                skill = random.randint(80, 92)
+            elif rand_val < 0.20:  # 15% good prospects
+                skill = random.randint(70, 79)
+            elif rand_val < 0.60:  # 40% average prospects
+                skill = random.randint(60, 69)
+            else:  # 40% below average prospects
+                skill = random.randint(50, 59)
 
+            # Rookies are aged 21-22
+            age = random.choice([21, 22])
 
+            # Create prospect with descriptive name
+            player_name = f"Draft {position}{prospect_id}"
+            player = Player(player_name, position, skill, age)
 
+            # Initialize scouting variance for draft display
+            player._initialize_draft_scouting()
+
+            prospects.append(player)
+            prospect_id += 1
+
+    # Shuffle to mix positions
+    random.shuffle(prospects)
+    return prospects
+
+# ============================
+# --- SCOUTING INTERFACE ---
+# ============================
+def run_scouting(franchise):
+    """Allow user to invest scouting points in prospects"""
+    print("\n" + "="*80)
+    print(f"DRAFT SCOUTING - Available Points: {franchise.scouting_points}".center(80))
+    print("="*80)
+    print("\nScouting Investment Costs:")
+    print("  - 1 point: Better accuracy (±3 speed/throw_power, ±10 other)")
+    print("  - 3 points: High accuracy (±1 speed/throw_power, ±5 other)")
+    print("  - Default: Base accuracy (±5 speed/throw_power, ±15 other)\n")
+
+    while True:
+        print(f"\nCurrent Scouting Points: {franchise.scouting_points}")
+        print("\n1. View Prospects (by position)")
+        print("2. Invest Scouting Points")
+        print("3. View Scouted Players")
+        print("4. Continue to Draft")
+        choice = input("> ").strip()
+
+        if choice == "1":
+            # View prospects by position
+            print("\nSelect Position:")
+            positions = ["QB", "RB", "WR", "TE", "DL", "LB", "CB", "S", "ALL"]
+            for idx, pos in enumerate(positions, 1):
+                print(f"{idx}. {pos}")
+
+            try:
+                pos_choice = int(input("> ")) - 1
+                if 0 <= pos_choice < len(positions):
+                    selected_pos = positions[pos_choice]
+                    if selected_pos == "ALL":
+                        prospects_to_show = franchise.draft_prospects[:50]  # Show first 50
+                    else:
+                        prospects_to_show = [p for p in franchise.draft_prospects if p.position == selected_pos][:30]
+
+                    view_draft_prospects(prospects_to_show, franchise.scouting_investment)
+            except:
+                print("Invalid selection.")
+
+        elif choice == "2":
+            # Invest points
+            print("\nEnter prospect name to scout (or 'back'):")
+            name = input("> ").strip()
+            if name.lower() == 'back':
+                continue
+
+            prospect = next((p for p in franchise.draft_prospects if p.name == name), None)
+            if not prospect:
+                print(f"Prospect '{name}' not found.")
+                continue
+
+            current_investment = franchise.scouting_investment.get(name, 0)
+            print(f"\nCurrent investment in {name}: {current_investment} points")
+            print("Invest 1 or 3 points? (or 0 to cancel)")
+            try:
+                investment = int(input("> "))
+                if investment in [1, 3]:
+                    new_total = current_investment + investment
+                    if new_total > 3:
+                        print("Cannot invest more than 3 points per player!")
+                    elif franchise.scouting_points < investment:
+                        print("Not enough scouting points!")
+                    else:
+                        franchise.scouting_points -= investment
+                        franchise.scouting_investment[name] = new_total
+                        print(f"Invested {investment} points. Total investment: {new_total}")
+            except:
+                print("Invalid investment amount.")
+
+        elif choice == "3":
+            # View scouted players
+            scouted = [(name, pts) for name, pts in franchise.scouting_investment.items()]
+            if not scouted:
+                print("\nNo players scouted yet.")
+            else:
+                print("\n=== Scouted Players ===")
+                for name, pts in sorted(scouted, key=lambda x: x[1], reverse=True):
+                    print(f"{name}: {pts} points")
+
+        elif choice == "4":
+            break
+
+# ============================
+# --- VIEW DRAFT PROSPECTS ---
+# ============================
+def view_draft_prospects(prospects, scouting_investment):
+    """Display draft prospects with scouted ratings"""
+    print(f"\n{'='*100}")
+    print("DRAFT PROSPECTS".center(100))
+    print(f"{'='*100}")
+
+    table = PrettyTable()
+    table.field_names = ["Name", "Pos", "Age", "Skill", "Speed", "Throw Pwr", "Catch", "Tackle", "Scout Pts"]
+
+    for prospect in prospects:
+        scout_pts = scouting_investment.get(prospect.name, 0)
+
+        # Show different attributes based on position
+        if prospect.position == "QB":
+            attr1 = prospect.get_draft_rating('throw_power', scout_pts) or 'N/A'
+            attr2 = prospect.get_draft_rating('throw_accuracy', scout_pts) or 'N/A'
+            label = f"Pwr:{attr1}/Acc:{attr2}"
+        elif prospect.position in ["RB", "WR", "TE"]:
+            attr1 = prospect.get_draft_rating('catching', scout_pts) or 'N/A'
+            label = f"{attr1}"
+        else:  # Defense
+            attr1 = prospect.get_draft_rating('tackling', scout_pts) or 'N/A'
+            label = f"{attr1}"
+
+        table.add_row([
+            prospect.name,
+            prospect.position,
+            prospect.age,
+            prospect.skill,
+            prospect.get_draft_rating('speed', scout_pts) or 'N/A',
+            attr1 if prospect.position == "QB" else "N/A",
+            attr1 if prospect.position in ["RB", "WR", "TE"] else "N/A",
+            attr1 if prospect.position in ["DL", "LB", "CB", "S"] else "N/A",
+            f"★{scout_pts}" if scout_pts > 0 else "-"
+        ])
+
+    print(table)
+
+# ============================
+# --- CALCULATE DRAFT ORDER ---
+# ============================
+def calculate_draft_order(franchise):
+    """Calculate draft order based on inverse standings"""
+    # Get all teams that didn't make playoffs first (worst to best record)
+    playoff_teams_names = set()
+
+    # Identify playoff teams (simplification: top 7 in each conference)
+    afc_teams = sorted([t for t in franchise.teams if t.league == "AFC"],
+                       key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)[:7]
+    nfc_teams = sorted([t for t in franchise.teams if t.league == "NFC"],
+                       key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)[:7]
+
+    for t in afc_teams + nfc_teams:
+        playoff_teams_names.add(t.name)
+
+    # Non-playoff teams (pick 1-18)
+    non_playoff = [t for t in franchise.teams if t.name not in playoff_teams_names]
+    non_playoff_sorted = sorted(non_playoff,
+                                key=lambda t: (t.wins, t.points_for - t.points_against))
+
+    # Playoff teams (pick 19-32) - losers pick earlier
+    playoff_sorted = sorted(afc_teams + nfc_teams,
+                           key=lambda t: (t.wins, t.points_for - t.points_against))
+
+    # Combine: non-playoff teams first, then playoff teams
+    draft_order = non_playoff_sorted + playoff_sorted
+    return draft_order
+
+# ============================
+# --- RUN NFL DRAFT ---
+# ============================
+def run_draft(franchise):
+    """Conduct 7-round NFL draft"""
+    print("\n" + "="*80)
+    print("NFL DRAFT".center(80))
+    print("="*80)
+
+    draft_order = calculate_draft_order(franchise)
+    available_prospects = franchise.draft_prospects.copy()
+    ROUNDS = 7
+
+    # Show draft order
+    print("\n=== DRAFT ORDER ===")
+    for idx, team in enumerate(draft_order, 1):
+        marker = " (YOU)" if team.name == franchise.user_team_name else ""
+        print(f"{idx}. {team.name}{marker} ({team.wins}-{team.losses})")
+
+    input("\nPress Enter to start the draft...")
+
+    # Conduct draft
+    for round_num in range(1, ROUNDS + 1):
+        print(f"\n{'='*80}")
+        print(f"ROUND {round_num}".center(80))
+        print(f"{'='*80}")
+
+        for pick_num, team in enumerate(draft_order, 1):
+            overall_pick = (round_num - 1) * 32 + pick_num
+
+            if not available_prospects:
+                print("\nNo more prospects available!")
+                return
+
+            if team.name == franchise.user_team_name:
+                # User's pick
+                print(f"\n*** YOUR PICK - Round {round_num}, Pick {pick_num} (Overall #{overall_pick}) ***")
+                print(f"Available Prospects: {len(available_prospects)}")
+
+                while True:
+                    print("\n1. View Available Prospects")
+                    print("2. Make Selection")
+                    print("3. Auto-pick (Best Available)")
+                    choice = input("> ").strip()
+
+                    if choice == "1":
+                        # Show top prospects
+                        print("\nTop 30 Available Prospects:")
+                        view_draft_prospects(available_prospects[:30], franchise.scouting_investment)
+
+                    elif choice == "2":
+                        print("\nEnter prospect name to draft:")
+                        name = input("> ").strip()
+                        prospect = next((p for p in available_prospects if p.name == name), None)
+                        if prospect:
+                            draft_player(team, prospect, available_prospects, round_num, pick_num, overall_pick)
+                            break
+                        else:
+                            print(f"Prospect '{name}' not found or already drafted.")
+
+                    elif choice == "3":
+                        # Auto-pick best available
+                        prospect = available_prospects[0]
+                        draft_player(team, prospect, available_prospects, round_num, pick_num, overall_pick)
+                        break
+
+            else:
+                # CPU pick - simple best available
+                prospect = available_prospects[0]
+                draft_player(team, prospect, available_prospects, round_num, pick_num, overall_pick, show_details=False)
+
+        input(f"\nRound {round_num} complete. Press Enter to continue...")
+
+    print("\n" + "="*80)
+    print("DRAFT COMPLETE!".center(80))
+    print("="*80)
+
+    # Reset scouting for next year
+    franchise.scouting_points = 100
+    franchise.scouting_investment = {}
+
+def draft_player(team, prospect, available_prospects, round_num, pick_num, overall_pick, show_details=True):
+    """Draft a player to a team"""
+    # Add player to team
+    team.players.append(prospect)
+
+    # Update starter lists if applicable
+    if prospect.position == "QB" and len(team.qb_starters) < 3:
+        team.qb_starters.append(prospect)
+    elif prospect.position == "RB" and len(team.rb_starters) < 5:
+        team.rb_starters.append(prospect)
+    elif prospect.position == "WR" and len(team.wr_starters) < 6:
+        team.wr_starters.append(prospect)
+    elif prospect.position == "TE" and len(team.te_starters) < 3:
+        team.te_starters.append(prospect)
+    elif prospect.position in ["DL", "LB", "CB", "S"]:
+        team.defense_starters.append(prospect)
+
+    # Remove from available prospects
+    available_prospects.remove(prospect)
+
+    # Announce pick
+    if show_details:
+        print(f"\n✓ {team.name} selects {prospect.name} ({prospect.position}) - Round {round_num}, Pick {pick_num}")
+    else:
+        print(f"{team.name}: {prospect.name} ({prospect.position})")
 
 
 # ============================
@@ -1281,6 +1648,14 @@ def load_franchise(filename="franchise_save.pkl"):
                     player.is_rookie = False
                     player.scouting_variance = {}
 
+        # Backward compatibility: Add draft-related attributes
+        if not hasattr(franchise, 'scouting_points'):
+            franchise.scouting_points = 100
+        if not hasattr(franchise, 'draft_prospects'):
+            franchise.draft_prospects = []
+        if not hasattr(franchise, 'scouting_investment'):
+            franchise.scouting_investment = {}
+
         print(f"Loaded franchise from {filename}")
         return franchise
     except:
@@ -1438,7 +1813,24 @@ def run_franchise(franchise):
         # Progress players (aging, skill changes, retirements)
         print("\n=== OFF-SEASON ===")
 
-        # Accumulate season stats to career stats BEFORE resetting
+        # ============================
+        # NFL DRAFT
+        # ============================
+        print("\n--- DRAFT PREPARATION ---")
+        franchise.draft_prospects = generate_draft_prospects(350)
+        print(f"Generated {len(franchise.draft_prospects)} draft prospects")
+
+        # Scouting phase
+        print("\nEnter scouting phase to evaluate prospects...")
+        input("Press Enter to begin scouting...")
+        run_scouting(franchise)
+
+        # Draft phase
+        print("\nPreparing for the NFL Draft...")
+        input("Press Enter to begin the draft...")
+        run_draft(franchise)
+
+        # Accumulate season stats to career stats BEFORE progression
         for team in franchise.teams:
             for player in team.players:
                 player.accumulate_to_career()
