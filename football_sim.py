@@ -199,6 +199,7 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
             rb.rush_td += 1
             play_description += " - TOUCHDOWN!"
         offense.score += 7
+        play_description += f" | SCORE: {offense.name} {offense.score}"
         clock_stops = True
 
     return yards_gained, time_elapsed, clock_stops, False, play_description
@@ -1296,7 +1297,7 @@ def check_injury(player):
 # ============================
 # --- SIMULATE DRIVE ---
 # ============================
-def simulate_drive(offense, defense):
+def simulate_drive(offense, defense, game_clock=None):
     """Simulate a full drive with multiple plays until TD, turnover, or punt"""
     qb = offense.qb_starters[0]
     rb = offense.rb_starters[0]
@@ -1308,8 +1309,9 @@ def simulate_drive(offense, defense):
     down = 1
     distance = 10
     drive_plays = []
+    plays_this_drive = 0
 
-    while yards_to_go > 0:
+    while yards_to_go > 0 and (game_clock is None or not game_clock.is_game_over()):
         # Handle 4th down BEFORE simulating play
         if down == 4:
             # Field goal attempt
@@ -1319,9 +1321,9 @@ def simulate_drive(offense, defense):
                 if random.random() < 0.80:
                     offense.score += 3
                     if kicker:
-                        play_desc = f"{kicker.name} {fg_distance}-yard field goal - GOOD!"
+                        play_desc = f"{kicker.name} {fg_distance}-yard field goal - GOOD! | SCORE: {offense.name} {offense.score}"
                     else:
-                        play_desc = f"{fg_distance}-yard field goal - GOOD!"
+                        play_desc = f"{fg_distance}-yard field goal - GOOD! | SCORE: {offense.name} {offense.score}"
                 else:
                     if kicker:
                         play_desc = f"{kicker.name} {fg_distance}-yard field goal - MISSED"
@@ -1348,9 +1350,15 @@ def simulate_drive(offense, defense):
             offense, defense, down, distance, yards_to_go
         )
 
-        # Add play description with down/distance context
+        plays_this_drive += 1
+
+        # Add play description with down/distance context and optional time
         context = f"{down}{['st','nd','rd','th'][min(down-1,3)]} & {distance}"
-        drive_plays.append(f"{context}: {play_description}")
+        if game_clock:
+            time_context = f"[{game_clock.format_time()}] "
+            drive_plays.append(f"{time_context}{context}: {play_description}")
+        else:
+            drive_plays.append(f"{context}: {play_description}")
 
         # Handle turnovers
         if is_turnover:
@@ -1371,8 +1379,22 @@ def simulate_drive(offense, defense):
         else:
             down += 1
 
+        # Run game clock if it exists
+        if game_clock:
+            # Run clock for the play
+            game_clock.run_time(time_elapsed)
+
+            # Run clock between plays (unless it stops)
+            if not clock_stops:
+                # Hurry-up offense in final 2 minutes of halves
+                if (game_clock.quarter == 2 or game_clock.quarter == 4) and game_clock.time_remaining < 120:
+                    time_between = random.randint(8, 12)
+                else:
+                    time_between = random.randint(25, 40)
+                game_clock.run_time(time_between)
+
         # Safety check
-        if down > 4:
+        if down > 4 or plays_this_drive > 20:
             return drive_plays
 
 # ============================
@@ -1419,27 +1441,46 @@ def simulate_game(team1, team2, user_team=None):
     # Initialize play-by-play storage
     all_plays = []
 
-    # Number of drives per team (simulates possessions)
-    drives_per_team = random.randint(11, 13)
+    # Create game clock for time management
+    game_clock = GameClock()
 
-    for drive_num in range(drives_per_team):
-        # Team 1 drive
-        drive_plays = simulate_drive(team1, team2)
-        if drive_plays:
-            all_plays.append({
-                'team': team1.name,
-                'drive_num': (drive_num * 2) + 1,
-                'plays': drive_plays
-            })
+    # Coin toss - random possession
+    possession = random.choice([team1, team2])
+    drive_num = 0
 
-        # Team 2 drive
-        drive_plays = simulate_drive(team2, team1)
-        if drive_plays:
-            all_plays.append({
-                'team': team2.name,
-                'drive_num': (drive_num * 2) + 2,
-                'plays': drive_plays
-            })
+    while not game_clock.is_game_over():
+        drive_num += 1
+
+        # Simulate drive with clock
+        if possession == team1:
+            drive_plays = simulate_drive(team1, team2, game_clock)
+            if drive_plays:
+                all_plays.append({
+                    'team': team1.name,
+                    'drive_num': drive_num,
+                    'plays': drive_plays
+                })
+            possession = team2
+        else:
+            drive_plays = simulate_drive(team2, team1, game_clock)
+            if drive_plays:
+                all_plays.append({
+                    'team': team2.name,
+                    'drive_num': drive_num,
+                    'plays': drive_plays
+                })
+            possession = team1
+
+        # Time for kickoff between drives (if game not over)
+        if not game_clock.is_game_over():
+            game_clock.run_time(random.randint(5, 10))
+
+        # Reset timeouts at halftime
+        if game_clock.is_half_over():
+            if hasattr(team1, 'timeouts'):
+                team1.timeouts = 3
+            if hasattr(team2, 'timeouts'):
+                team2.timeouts = 3
 
     # Determine winner
     if team1.score > team2.score:
