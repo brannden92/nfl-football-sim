@@ -47,7 +47,7 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
     qb = offense.qb_starters[0]
     rb = random.choice(offense.rb_starters)
     def_player = random.choice(defense.defense_starters)
-    
+
     # Choose play type based on down and distance
     if down == 3 and distance > 7:
         play_type = random.choices(["pass", "run"], weights=[0.75, 0.25])[0]
@@ -55,10 +55,11 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
         play_type = random.choices(["pass", "run"], weights=[0.45, 0.55])[0]
     else:
         play_type = random.choices(["pass", "run"], weights=[0.6, 0.4])[0]
-    
+
     clock_stops = False
     time_elapsed = 0
     yards_gained = 0
+    play_description = ""
     
     if play_type == "pass":
         qb.pass_attempts += 1
@@ -82,6 +83,7 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
                 yards_gained = -random.randint(3, 8)
                 qb.sacks_taken += 1
                 time_elapsed = random.randint(4, 8)
+                play_description = f"{qb.name} sacked by {def_player.name} for {yards_gained} yards"
             else:
                 # QB Scramble
                 yards_gained = random.randint(2, 12)
@@ -90,13 +92,15 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
                 if yards_gained > qb.longest_rush:
                     qb.longest_rush = yards_gained
                 time_elapsed = random.randint(4, 8)
-                
+                play_description = f"{qb.name} scrambles for {yards_gained} yards"
+
                 # QB could fumble on scramble
                 if random.random() < 0.02:
                     qb.fumbles += 1
                     time_elapsed = random.randint(6, 10)
                     clock_stops = True
-                    return yards_gained, time_elapsed, clock_stops, True  # Turnover
+                    play_description = f"{qb.name} scrambles and fumbles! Recovered by {def_player.name}"
+                    return yards_gained, time_elapsed, clock_stops, True, play_description  # Turnover
         
         # Check for interception
         elif random.random() < 0.025:
@@ -104,17 +108,21 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
             def_player.interceptions_def += 1
             time_elapsed = random.randint(5, 12)
             clock_stops = True
-            return yards_gained, time_elapsed, clock_stops, True  # Turnover
-        
+            play_description = f"{qb.name} intercepted by {def_player.name}!"
+            return yards_gained, time_elapsed, clock_stops, True, play_description  # Turnover
+
         # Incomplete pass
         elif random.random() > success_rate:
             yards_gained = 0
             time_elapsed = random.randint(4, 8)
             clock_stops = True
-            
+
             # Check if it was a drop
             if random.random() < 0.15:
                 receiver.drops += 1
+                play_description = f"{qb.name} pass to {receiver.name} - DROPPED"
+            else:
+                play_description = f"{qb.name} pass to {receiver.name} incomplete"
         
         # Completed pass
         else:
@@ -126,39 +134,43 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
                     yards_gained = random.randint(1, 12) + (receiver.skill - def_player.skill) // 20
                 else:
                     yards_gained = random.randint(3, 18) + (receiver.skill - def_player.skill) // 20
-            
+
             qb.pass_completions += 1
             qb.pass_yards += yards_gained
             receiver.rec_catches += 1
             receiver.rec_yards += yards_gained
-            
+
             if yards_gained > qb.longest_pass:
                 qb.longest_pass = yards_gained
             if yards_gained > receiver.longest_rec:
                 receiver.longest_rec = yards_gained
-            
+
+            play_description = f"{qb.name} pass to {receiver.name} for {yards_gained} yards"
+
             # Check if player went out of bounds
             if random.random() < 0.25:
                 clock_stops = True
-            
+
             time_elapsed = random.randint(6, 12)
     
     else:  # Run play
         rb.rush_attempts += 1
-        
+
         # Check for big run (5% chance)
         if random.random() < 0.05:
             yards_gained = random.randint(15, 80)
         else:
             yards_gained = random.randint(-2, 10) + (rb.skill - def_player.skill) // 20
-        
+
         rb.rush_yards += yards_gained
-        
+
         if yards_gained > rb.longest_rush:
             rb.longest_rush = yards_gained
-        
+
+        play_description = f"{rb.name} rush for {yards_gained} yards"
+
         time_elapsed = random.randint(3, 7)
-        
+
         # Check for fumble
         if random.random() < 0.015:
             rb.fumbles += 1
@@ -167,7 +179,8 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
                 def_player.fumble_recoveries += 1
                 time_elapsed = random.randint(6, 10)
                 clock_stops = True
-                return yards_gained, time_elapsed, clock_stops, True  # Turnover
+                play_description = f"{rb.name} fumbles! Recovered by {def_player.name}"
+                return yards_gained, time_elapsed, clock_stops, True, play_description  # Turnover
     
     # Defensive stats
     def_player.tackles += 1
@@ -175,18 +188,20 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
         def_player.qb_pressure += 1
     if play_type == "pass" and random.random() < 0.08:
         def_player.pass_deflections += 1
-    
+
     # Check for touchdown
     if yards_to_go - yards_gained <= 0:
         if play_type == "pass":
             qb.pass_td += 1
             receiver.rec_td += 1
+            play_description += " - TOUCHDOWN!"
         else:
             rb.rush_td += 1
+            play_description += " - TOUCHDOWN!"
         offense.score += 7
         clock_stops = True
-    
-    return yards_gained, time_elapsed, clock_stops, False
+
+    return yards_gained, time_elapsed, clock_stops, False, play_description
 
 # ============================
 # --- SIMULATE DRIVE ---
@@ -1285,58 +1300,80 @@ def simulate_drive(offense, defense):
     """Simulate a full drive with multiple plays until TD, turnover, or punt"""
     qb = offense.qb_starters[0]
     rb = offense.rb_starters[0]
-    
+
     # Random starting field position (20-40 yard line typically)
     starting_position = random.randint(20, 40)
     yards_to_go = 100 - starting_position  # Distance to end zone
-    
+
     down = 1
     distance = 10
-    
+    drive_plays = []
+
     while yards_to_go > 0:
         # Handle 4th down BEFORE simulating play
         if down == 4:
             # Field goal attempt
             if yards_to_go <= 40 and random.random() < 0.75:
                 fg_distance = yards_to_go + 17
+                kicker = offense.k_starters[0] if offense.k_starters else None
                 if random.random() < 0.80:
                     offense.score += 3
-                return
-            
+                    if kicker:
+                        play_desc = f"{kicker.name} {fg_distance}-yard field goal - GOOD!"
+                    else:
+                        play_desc = f"{fg_distance}-yard field goal - GOOD!"
+                else:
+                    if kicker:
+                        play_desc = f"{kicker.name} {fg_distance}-yard field goal - MISSED"
+                    else:
+                        play_desc = f"{fg_distance}-yard field goal - MISSED"
+                drive_plays.append(play_desc)
+                return drive_plays
+
             # Go for it on short yardage
             elif distance <= 2 and random.random() < 0.30:
                 pass  # Continue to simulate play
             else:
                 # Punt
-                return
-        
+                punter = offense.p_starters[0] if offense.p_starters else None
+                if punter:
+                    play_desc = f"{punter.name} punts"
+                else:
+                    play_desc = "Punt"
+                drive_plays.append(play_desc)
+                return drive_plays
+
         # Simulate the play
-        yards_gained, time_elapsed, clock_stops, is_turnover = simulate_play(
+        yards_gained, time_elapsed, clock_stops, is_turnover, play_description = simulate_play(
             offense, defense, down, distance, yards_to_go
         )
-        
+
+        # Add play description with down/distance context
+        context = f"{down}{['st','nd','rd','th'][min(down-1,3)]} & {distance}"
+        drive_plays.append(f"{context}: {play_description}")
+
         # Handle turnovers
         if is_turnover:
-            return
-        
+            return drive_plays
+
         # Update field position
         yards_to_go -= yards_gained
         distance -= yards_gained
-        
+
         # Check for touchdown
         if yards_to_go <= 0:
-            return
-        
+            return drive_plays
+
         # Update downs
         if distance <= 0:
             down = 1
             distance = 10
         else:
             down += 1
-        
+
         # Safety check
         if down > 4:
-            return
+            return drive_plays
 
 # ============================
 # --- SIMULATE GAME ---
@@ -1379,12 +1416,30 @@ def simulate_game(team1, team2, user_team=None):
     team1.score = 0
     team2.score = 0
 
+    # Initialize play-by-play storage
+    all_plays = []
+
     # Number of drives per team (simulates possessions)
     drives_per_team = random.randint(11, 13)
 
-    for _ in range(drives_per_team):
-        simulate_drive(team1, team2)
-        simulate_drive(team2, team1)
+    for drive_num in range(drives_per_team):
+        # Team 1 drive
+        drive_plays = simulate_drive(team1, team2)
+        if drive_plays:
+            all_plays.append({
+                'team': team1.name,
+                'drive_num': (drive_num * 2) + 1,
+                'plays': drive_plays
+            })
+
+        # Team 2 drive
+        drive_plays = simulate_drive(team2, team1)
+        if drive_plays:
+            all_plays.append({
+                'team': team2.name,
+                'drive_num': (drive_num * 2) + 2,
+                'plays': drive_plays
+            })
 
     # Determine winner
     if team1.score > team2.score:
@@ -1413,6 +1468,10 @@ def simulate_game(team1, team2, user_team=None):
     _compute_delta_and_store(team1, before_team1, team1.players)
     _compute_delta_and_store(team2, before_team2, team2.players)
 
+    # Store play-by-play for both teams
+    team1.last_game_plays = all_plays
+    team2.last_game_plays = all_plays
+
     # Print result only if user team involved (or no user specified)
     emoji1 = get_team_emoji(team1.name)
     emoji2 = get_team_emoji(team2.name)
@@ -1425,7 +1484,8 @@ def simulate_game(team1, team2, user_team=None):
         'away_team': team2.name,
         'home_score': team1.score,
         'away_score': team2.score,
-        'winner': winner.name
+        'winner': winner.name,
+        'plays': all_plays
     }
 
     return winner, game_result
@@ -1628,6 +1688,30 @@ def print_last_game_stats(team):
         ])
     print(table)
 
+# ============================
+# --- VIEW LAST GAME PLAY-BY-PLAY ---
+# ============================
+def view_last_game_plays(team):
+    """Display play-by-play for the last game"""
+    if not hasattr(team, 'last_game_plays') or not team.last_game_plays:
+        print("\nNo play-by-play data available for the last game.")
+        return
+
+    print(f"\n{'='*100}")
+    print(f"LAST GAME PLAY-BY-PLAY".center(100))
+    print(f"{'='*100}\n")
+
+    for drive_info in team.last_game_plays:
+        team_name = drive_info['team']
+        drive_num = drive_info['drive_num']
+        plays = drive_info['plays']
+
+        emoji = get_team_emoji(team_name)
+        print(f"\n--- DRIVE #{drive_num}: {emoji} {team_name} ---")
+        for i, play in enumerate(plays, 1):
+            print(f"  {i}. {play}")
+
+    input("\nPress Enter to continue...")
 
 
 # ============================
@@ -2240,6 +2324,10 @@ def load_franchise(filename="franchise_save.pkl"):
             if not hasattr(team, 'p_starters'):
                 team.p_starters = [p for p in team.players if p.position == "P"][:1]
 
+            # Backward compatibility: Add last_game_plays if it doesn't exist
+            if not hasattr(team, 'last_game_plays'):
+                team.last_game_plays = []
+
         # Backward compatibility: Add draft-related attributes
         if not hasattr(franchise, 'scouting_points'):
             franchise.scouting_points = 100
@@ -2415,15 +2503,16 @@ def run_franchise(franchise):
 
             print("1. Simulate Week")
             print("2. View Last Game's Stats")
-            print("3. View Your Team Season Stats")
-            print("4. View Your Team Career Stats")
-            print("5. View Other Team Stats")
-            print("6. View Standings")
-            print("7. View Franchise History")
-            print("8. View Full Roster")
-            print("9. View Game Results")
-            print("10. Save Franchise")
-            print("11. Quit")
+            print("3. View Last Game's Play-by-Play")
+            print("4. View Your Team Season Stats")
+            print("5. View Your Team Career Stats")
+            print("6. View Other Team Stats")
+            print("7. View Standings")
+            print("8. View Franchise History")
+            print("9. View Full Roster")
+            print("10. View Game Results")
+            print("11. Save Franchise")
+            print("12. Quit")
             choice = input("> ").strip()
 
             if choice == "1":
@@ -2457,15 +2546,19 @@ def run_franchise(franchise):
                 print_last_game_stats(user_team)
 
             elif choice == "3":
+                # Last game's play-by-play
+                view_last_game_plays(user_team)
+
+            elif choice == "4":
                 # Season totals (accumulated)
                 games_played = franchise.current_week - 1
                 print_team_stats(user_team, games_played)
 
-            elif choice == "4":
+            elif choice == "5":
                 # Career stats
                 print_career_stats(user_team)
 
-            elif choice == "5":
+            elif choice == "6":
                 games_played = franchise.current_week - 1
                 for idx, t in enumerate(franchise.teams):
                     emoji = get_team_emoji(t.name)
@@ -2477,24 +2570,24 @@ def run_franchise(franchise):
                 except:
                     print("Invalid selection.")
 
-            elif choice == "6":
+            elif choice == "7":
                 view_standings(franchise.teams, user_team_name=franchise.user_team_name)
 
-            elif choice == "7":
+            elif choice == "8":
                 view_franchise_history(franchise)
 
-            elif choice == "8":
+            elif choice == "9":
                 # View full roster with ratings
                 view_full_roster(user_team, current_week=franchise.current_week)
 
-            elif choice == "9":
+            elif choice == "10":
                 # View game results
                 view_game_results(franchise)
 
-            elif choice == "10":
+            elif choice == "11":
                 save_franchise(franchise)
 
-            elif choice == "11":
+            elif choice == "12":
                 save_franchise(franchise)
                 return
 
