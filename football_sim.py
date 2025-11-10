@@ -1056,8 +1056,9 @@ def run_draft(franchise):
     # Show draft order
     print("\n=== DRAFT ORDER ===")
     for idx, team in enumerate(draft_order, 1):
+        emoji = get_team_emoji(team.name)
         marker = " (YOU)" if team.name == franchise.user_team_name else ""
-        print(f"{idx}. {team.name}{marker} ({team.wins}-{team.losses})")
+        print(f"{idx}. {emoji} {team.name}{marker} ({team.wins}-{team.losses})")
 
     input("\nPress Enter to start the draft...")
 
@@ -1144,11 +1145,56 @@ def draft_player(team, prospect, available_prospects, round_num, pick_num, overa
     available_prospects.remove(prospect)
 
     # Announce pick
-    if show_details:
-        print(f"\n✓ {team.name} selects {prospect.name} ({prospect.position}) - Round {round_num}, Pick {pick_num}")
-    else:
-        print(f"{team.name}: {prospect.name} ({prospect.position})")
+    emoji = get_team_emoji(team.name)
+    overall = prospect.skill
+    potential = prospect.get_overall_potential()
 
+    if show_details:
+        print(f"\n✓ {emoji} {team.name} selects {prospect.name} ({prospect.position}) - OVR:{overall} POT:{potential} - Round {round_num}, Pick {pick_num}")
+    else:
+        print(f"{emoji} {team.name}: {prospect.name} ({prospect.position}) - OVR:{overall} POT:{potential}")
+
+
+# ============================
+# --- TEAM EMOJI HELPER ---
+# ============================
+def get_team_emoji(team_name):
+    """Return an emoji that matches the team name"""
+    emoji_map = {
+        "Buffalo Bills": "🦬",
+        "Miami Dolphins": "🐬",
+        "New England Patriots": "🇺🇸",
+        "New York Jets": "✈️",
+        "Baltimore Ravens": "🐦",
+        "Cincinnati Bengals": "🐅",
+        "Cleveland Browns": "🟤",
+        "Pittsburgh Steelers": "⚙️",
+        "Houston Texans": "🤠",
+        "Indianapolis Colts": "🐴",
+        "Jacksonville Jaguars": "🐆",
+        "Tennessee Titans": "⚡",
+        "Denver Broncos": "🐴",
+        "Kansas City Chiefs": "🏹",
+        "Las Vegas Raiders": "🏴‍☠️",
+        "Los Angeles Chargers": "⚡",
+        "Dallas Cowboys": "⭐",
+        "New York Giants": "🗽",
+        "Philadelphia Eagles": "🦅",
+        "Washington Commanders": "🎖️",
+        "Chicago Bears": "🐻",
+        "Detroit Lions": "🦁",
+        "Green Bay Packers": "🧀",
+        "Minnesota Vikings": "⚔️",
+        "Atlanta Falcons": "🦅",
+        "Carolina Panthers": "🐆",
+        "New Orleans Saints": "⚜️",
+        "Tampa Bay Buccaneers": "🏴‍☠️",
+        "Arizona Cardinals": "🐦",
+        "Los Angeles Rams": "🐏",
+        "San Francisco 49ers": "⛏️",
+        "Seattle Seahawks": "🦅"
+    }
+    return emoji_map.get(team_name, "🏈")
 
 # ============================
 # --- INJURY CHECK FUNCTION ---
