@@ -873,19 +873,21 @@ def run_playoffs(franchise):
     print("\n" + "="*70)
     print("WILD CARD ROUND".center(70))
     print("="*70)
-    
+
     afc_wc_winners = []
     nfc_wc_winners = []
-    
+
+    print("\n--- AFC Wild Card Games ---")
     # AFC Wild Card (2 vs 7, 3 vs 6, 4 vs 5)
-    afc_wc_winners.append(simulate_game(afc_teams[1], afc_teams[6], franchise.user_team_name))
-    afc_wc_winners.append(simulate_game(afc_teams[2], afc_teams[5], franchise.user_team_name))
-    afc_wc_winners.append(simulate_game(afc_teams[3], afc_teams[4], franchise.user_team_name))
-    
+    afc_wc_winners.append(simulate_game(afc_teams[1], afc_teams[6], user_team=None))
+    afc_wc_winners.append(simulate_game(afc_teams[2], afc_teams[5], user_team=None))
+    afc_wc_winners.append(simulate_game(afc_teams[3], afc_teams[4], user_team=None))
+
+    print("\n--- NFC Wild Card Games ---")
     # NFC Wild Card
-    nfc_wc_winners.append(simulate_game(nfc_teams[1], nfc_teams[6], franchise.user_team_name))
-    nfc_wc_winners.append(simulate_game(nfc_teams[2], nfc_teams[5], franchise.user_team_name))
-    nfc_wc_winners.append(simulate_game(nfc_teams[3], nfc_teams[4], franchise.user_team_name))
+    nfc_wc_winners.append(simulate_game(nfc_teams[1], nfc_teams[6], user_team=None))
+    nfc_wc_winners.append(simulate_game(nfc_teams[2], nfc_teams[5], user_team=None))
+    nfc_wc_winners.append(simulate_game(nfc_teams[3], nfc_teams[4], user_team=None))
     
     input("\nPress Enter to continue to Divisional Round...")
     
@@ -893,19 +895,21 @@ def run_playoffs(franchise):
     print("\n" + "="*70)
     print("DIVISIONAL ROUND".center(70))
     print("="*70)
-    
+
     # Re-seed winners (1 seed plays lowest remaining seed)
     afc_remaining = [afc_teams[0]] + sorted(afc_wc_winners, key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
     nfc_remaining = [nfc_teams[0]] + sorted(nfc_wc_winners, key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
-    
+
     afc_div_winners = []
     nfc_div_winners = []
-    
-    afc_div_winners.append(simulate_game(afc_remaining[0], afc_remaining[3], franchise.user_team_name))
-    afc_div_winners.append(simulate_game(afc_remaining[1], afc_remaining[2], franchise.user_team_name))
-    
-    nfc_div_winners.append(simulate_game(nfc_remaining[0], nfc_remaining[3], franchise.user_team_name))
-    nfc_div_winners.append(simulate_game(nfc_remaining[1], nfc_remaining[2], franchise.user_team_name))
+
+    print("\n--- AFC Divisional Games ---")
+    afc_div_winners.append(simulate_game(afc_remaining[0], afc_remaining[3], user_team=None))
+    afc_div_winners.append(simulate_game(afc_remaining[1], afc_remaining[2], user_team=None))
+
+    print("\n--- NFC Divisional Games ---")
+    nfc_div_winners.append(simulate_game(nfc_remaining[0], nfc_remaining[3], user_team=None))
+    nfc_div_winners.append(simulate_game(nfc_remaining[1], nfc_remaining[2], user_team=None))
     
     input("\nPress Enter to continue to Conference Championships...")
     
@@ -913,18 +917,21 @@ def run_playoffs(franchise):
     print("\n" + "="*70)
     print("CONFERENCE CHAMPIONSHIPS".center(70))
     print("="*70)
-    
-    afc_champ = simulate_game(afc_div_winners[0], afc_div_winners[1], franchise.user_team_name)
-    nfc_champ = simulate_game(nfc_div_winners[0], nfc_div_winners[1], franchise.user_team_name)
-    
+
+    print("\n--- AFC Championship Game ---")
+    afc_champ = simulate_game(afc_div_winners[0], afc_div_winners[1], user_team=None)
+
+    print("\n--- NFC Championship Game ---")
+    nfc_champ = simulate_game(nfc_div_winners[0], nfc_div_winners[1], user_team=None)
+
     input("\nPress Enter to continue to the SUPER BOWL...")
-    
+
     # Super Bowl
     print("\n" + "="*70)
     print("SUPER BOWL".center(70))
-    print("="*70)
-    
-    champion = simulate_game(afc_champ, nfc_champ, franchise.user_team_name)
+    print("="*70 + "\n")
+
+    champion = simulate_game(afc_champ, nfc_champ, user_team=None)
     
     print("\n" + "="*70)
     print(f"🏆 {champion.name} WIN THE SUPER BOWL! 🏆".center(70))
