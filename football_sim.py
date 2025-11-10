@@ -258,6 +258,17 @@ class Player:
         self.fumble_recoveries = 0
         self.pass_deflections = 0
 
+        # Kicker/Punter stats
+        self.fg_attempts = 0
+        self.fg_made = 0
+        self.fg_longest = 0
+        self.xp_attempts = 0
+        self.xp_made = 0
+        self.punts = 0
+        self.punt_yards = 0
+        self.punts_inside_20 = 0
+        self.touchbacks = 0
+
         # Career stats (cumulative across all seasons)
         self.career_pass_attempts = 0
         self.career_pass_completions = 0
@@ -284,6 +295,16 @@ class Player:
         self.career_forced_fumbles = 0
         self.career_fumble_recoveries = 0
         self.career_pass_deflections = 0
+
+        self.career_fg_attempts = 0
+        self.career_fg_made = 0
+        self.career_fg_longest = 0
+        self.career_xp_attempts = 0
+        self.career_xp_made = 0
+        self.career_punts = 0
+        self.career_punt_yards = 0
+        self.career_punts_inside_20 = 0
+        self.career_touchbacks = 0
 
     def _initialize_attributes_and_potentials(self):
         """Initialize player attributes and their potentials based on position and skill"""
@@ -340,6 +361,13 @@ class Player:
                 self.pass_rush = min(99, max(50, self.skill + variance))
                 self.pass_rush_potential = min(99, self.pass_rush + random.randint(5, 15))
 
+        elif self.position in ["K", "P"]:
+            self.kicking_power = min(99, max(50, self.skill + variance))
+            self.kicking_power_potential = min(99, self.kicking_power + random.randint(5, 15))
+
+            self.kicking_accuracy = min(99, max(50, self.skill + variance))
+            self.kicking_accuracy_potential = min(99, self.kicking_accuracy + random.randint(5, 15))
+
     def _initialize_scouting_variance(self):
         """Initialize consistent variance for rookie scouting (only called for rookies)"""
         # Core attributes that need consistent variance
@@ -358,6 +386,8 @@ class Player:
             attributes.extend(['tackling', 'coverage'])
             if self.position in ["DL", "LB"]:
                 attributes.append('pass_rush')
+        elif self.position in ["K", "P"]:
+            attributes.extend(['kicking_power', 'kicking_accuracy'])
 
         # Assign random variance for each attribute (will be consistent throughout rookie year)
         for attr in attributes:
@@ -482,11 +512,23 @@ class Player:
         self.career_fumble_recoveries += self.fumble_recoveries
         self.career_pass_deflections += self.pass_deflections
 
+        self.career_fg_attempts += self.fg_attempts
+        self.career_fg_made += self.fg_made
+        if self.fg_longest > self.career_fg_longest:
+            self.career_fg_longest = self.fg_longest
+        self.career_xp_attempts += self.xp_attempts
+        self.career_xp_made += self.xp_made
+        self.career_punts += self.punts
+        self.career_punt_yards += self.punt_yards
+        self.career_punts_inside_20 += self.punts_inside_20
+        self.career_touchbacks += self.touchbacks
+
     def reset_stats(self):
         attrs = ["pass_attempts","pass_completions","pass_yards","pass_td","interceptions",
                  "longest_pass","sacks_taken","rush_attempts","rush_yards","rush_td","longest_rush","fumbles",
                  "rec_targets","rec_catches","rec_yards","rec_td","drops","longest_rec",
-                 "tackles","sacks","qb_pressure","interceptions_def","forced_fumbles","fumble_recoveries","pass_deflections"]
+                 "tackles","sacks","qb_pressure","interceptions_def","forced_fumbles","fumble_recoveries","pass_deflections",
+                 "fg_attempts","fg_made","fg_longest","xp_attempts","xp_made","punts","punt_yards","punts_inside_20","touchbacks"]
         for attr in attrs:
             setattr(self, attr, 0)
 
@@ -535,6 +577,10 @@ class Player:
 
             if self.position in ["DL", "LB"]:
                 self._progress_attribute('pass_rush', 'pass_rush_potential', attr_progression)
+
+        elif self.position in ["K", "P"]:
+            self._progress_attribute('kicking_power', 'kicking_power_potential', attr_progression)
+            self._progress_attribute('kicking_accuracy', 'kicking_accuracy_potential', attr_progression)
 
         self.age += 1
         self.years_played += 1
@@ -613,6 +659,12 @@ class Player:
                 if hasattr(self, 'pass_rush_potential'):
                     potentials.append(self.pass_rush_potential)
 
+        elif self.position in ["K", "P"]:
+            if hasattr(self, 'kicking_power_potential'):
+                potentials.append(self.kicking_power_potential)
+            if hasattr(self, 'kicking_accuracy_potential'):
+                potentials.append(self.kicking_accuracy_potential)
+
         # Return average potential
         if potentials:
             return int(sum(potentials) / len(potentials))
@@ -634,6 +686,8 @@ class Team:
         self.te_starters = []
         self.ol_starters = []
         self.defense_starters = []
+        self.k_starters = []
+        self.p_starters = []
         self.score = 0
         self.wins = 0
         self.losses = 0
@@ -765,7 +819,9 @@ def generate_draft_prospects(num_prospects=350):
         "DL": 65,
         "LB": 60,
         "CB": 50,
-        "S": 30
+        "S": 30,
+        "K": 5,
+        "P": 5
     }
 
     # Generate players for each position
@@ -896,6 +952,8 @@ def run_scouting(franchise):
                             key_attr = f"Catch:{prospect.get_draft_rating('catching', pts)}"
                         elif prospect.position == "OL":
                             key_attr = f"Pass:{prospect.get_draft_rating('pass_blocking', pts)}"
+                        elif prospect.position in ["K", "P"]:
+                            key_attr = f"Kick:{prospect.get_draft_rating('kicking_accuracy', pts)}"
                         else:  # Defense
                             key_attr = f"Tack:{prospect.get_draft_rating('tackling', pts)}"
 
@@ -1148,6 +1206,10 @@ def draft_player(team, prospect, available_prospects, round_num, pick_num, overa
         team.te_starters.append(prospect)
     elif prospect.position == "OL" and len(team.ol_starters) < 5:
         team.ol_starters.append(prospect)
+    elif prospect.position == "K" and len(team.k_starters) < 1:
+        team.k_starters.append(prospect)
+    elif prospect.position == "P" and len(team.p_starters) < 1:
+        team.p_starters.append(prospect)
     elif prospect.position in ["DL", "LB", "CB", "S"]:
         team.defense_starters.append(prospect)
 
@@ -1465,6 +1527,27 @@ def print_team_stats(team, games_played):
         table.add_row([d.name,d.tackles,d.sacks,d.qb_pressure,d.interceptions_def,d.forced_fumbles,d.fumble_recoveries,d.pass_deflections])
     print(table)
 
+    # Kicking stats
+    if team.k_starters:
+        print("\n=== Kicking ===")
+        table = PrettyTable()
+        table.field_names = ["Name","FG","FGA","FG%","Long","XP","XPA","XP%"]
+        for k in team.k_starters:
+            fg_pct = k.fg_made/k.fg_attempts*100 if k.fg_attempts else 0
+            xp_pct = k.xp_made/k.xp_attempts*100 if k.xp_attempts else 0
+            table.add_row([k.name,k.fg_made,k.fg_attempts,round(fg_pct,1),k.fg_longest,k.xp_made,k.xp_attempts,round(xp_pct,1)])
+        print(table)
+
+    # Punting stats
+    if team.p_starters:
+        print("\n=== Punting ===")
+        table = PrettyTable()
+        table.field_names = ["Name","Punts","Yards","Y/P","In20","TB"]
+        for p in team.p_starters:
+            ypp = p.punt_yards/p.punts if p.punts else 0
+            table.add_row([p.name,p.punts,p.punt_yards,round(ypp,1),p.punts_inside_20,p.touchbacks])
+        print(table)
+
 # ============================
 # --- PRINT LAST GAME STATS ---
 # ============================
@@ -1638,6 +1721,34 @@ def print_career_stats(team):
                       d.career_pass_deflections])
     print(table)
 
+    # Career Kicking Stats
+    kickers = [p for p in team.players if p.position == "K" and p.career_fg_attempts > 0]
+    if kickers:
+        print("\n=== Career Kicking Leaders ===")
+        table = PrettyTable()
+        table.field_names = ["Name", "Seasons", "FG", "FGA", "FG%", "Long", "XP", "XPA", "XP%"]
+        kickers_sorted = sorted(kickers, key=lambda x: x.career_fg_made, reverse=True)
+        for k in kickers_sorted:
+            fg_pct = k.career_fg_made / k.career_fg_attempts * 100 if k.career_fg_attempts else 0
+            xp_pct = k.career_xp_made / k.career_xp_attempts * 100 if k.career_xp_attempts else 0
+            table.add_row([k.name, k.years_played, k.career_fg_made, k.career_fg_attempts,
+                          round(fg_pct, 1), k.career_fg_longest, k.career_xp_made, k.career_xp_attempts,
+                          round(xp_pct, 1)])
+        print(table)
+
+    # Career Punting Stats
+    punters = [p for p in team.players if p.position == "P" and p.career_punts > 0]
+    if punters:
+        print("\n=== Career Punting Leaders ===")
+        table = PrettyTable()
+        table.field_names = ["Name", "Seasons", "Punts", "Yards", "Y/P", "In20", "TB"]
+        punters_sorted = sorted(punters, key=lambda x: x.career_punts, reverse=True)
+        for p in punters_sorted:
+            ypp = p.career_punt_yards / p.career_punts if p.career_punts else 0
+            table.add_row([p.name, p.years_played, p.career_punts, p.career_punt_yards,
+                          round(ypp, 1), p.career_punts_inside_20, p.career_touchbacks])
+        print(table)
+
 # ============================
 # --- VIEW FRANCHISE HISTORY ---
 # ============================
@@ -1680,7 +1791,7 @@ def view_full_roster(team, current_week=17):
     print(f"{'='*100}")
 
     # Group by position
-    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "OL": [], "DL": [], "LB": [], "CB": [], "S": []}
+    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "OL": [], "DL": [], "LB": [], "CB": [], "S": [], "K": [], "P": []}
 
     for player in team.players:
         if player.position in positions:
@@ -1762,6 +1873,19 @@ def view_full_roster(team, current_week=17):
                     p.get_scouted_rating('coverage', current_week) or 'N/A'
                 ])
 
+        elif position in ["K", "P"]:
+            table.field_names = ["Depth", "Name", "Age", "Skill", "Potential", "Speed", "Strength", "Kick Pwr", "Kick Acc"]
+            for idx, p in enumerate(players_sorted, 1):
+                depth = f"#{idx}"
+                name_display = p.name + (" (R)" if p.is_rookie else "")
+                table.add_row([
+                    depth, name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('kicking_power', current_week) or 'N/A',
+                    p.get_scouted_rating('kicking_accuracy', current_week) or 'N/A'
+                ])
+
         print(table)
 
 # ============================
@@ -1791,7 +1915,7 @@ def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_
     print(f"{'='*100}")
 
     # Group by position
-    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "OL": [], "DL": [], "LB": [], "CB": [], "S": []}
+    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "OL": [], "DL": [], "LB": [], "CB": [], "S": [], "K": [], "P": []}
 
     for player in team.players:
         if player.position in positions:
@@ -1886,6 +2010,22 @@ def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_
                     format_attr_with_change(strength, 'prev_strength', p),
                     format_attr_with_change(tackling, 'prev_tackling', p),
                     format_attr_with_change(coverage, 'prev_coverage', p)
+                ])
+
+        elif position in ["K", "P"]:
+            table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Kick Pwr", "Kick Acc"]
+            for p in players_sorted:
+                name_display = p.name + (" (R)" if p.is_rookie else "")
+                speed = p.get_scouted_rating('speed', current_week)
+                strength = p.get_scouted_rating('strength', current_week)
+                kicking_power = p.get_scouted_rating('kicking_power', current_week)
+                kicking_accuracy = p.get_scouted_rating('kicking_accuracy', current_week)
+                table.add_row([
+                    name_display, p.age, p.skill, p.get_overall_potential(),
+                    format_attr_with_change(speed, 'prev_speed', p),
+                    format_attr_with_change(strength, 'prev_strength', p),
+                    format_attr_with_change(kicking_power, 'prev_kicking_power', p),
+                    format_attr_with_change(kicking_accuracy, 'prev_kicking_accuracy', p)
                 ])
 
         print(table)
@@ -2074,6 +2214,15 @@ def load_franchise(filename="franchise_save.pkl"):
                     player.career_forced_fumbles = 0
                     player.career_fumble_recoveries = 0
                     player.career_pass_deflections = 0
+                    player.career_fg_attempts = 0
+                    player.career_fg_made = 0
+                    player.career_fg_longest = 0
+                    player.career_xp_attempts = 0
+                    player.career_xp_made = 0
+                    player.career_punts = 0
+                    player.career_punt_yards = 0
+                    player.career_punts_inside_20 = 0
+                    player.career_touchbacks = 0
 
                 # Backward compatibility: Add attribute potentials if they don't exist
                 if not hasattr(player, 'speed'):
@@ -2084,6 +2233,12 @@ def load_franchise(filename="franchise_save.pkl"):
                     # Existing players are not rookies
                     player.is_rookie = False
                     player.scouting_variance = {}
+
+            # Backward compatibility: Add k_starters and p_starters if they don't exist
+            if not hasattr(team, 'k_starters'):
+                team.k_starters = [p for p in team.players if p.position == "K"][:1]
+            if not hasattr(team, 'p_starters'):
+                team.p_starters = [p for p in team.players if p.position == "P"][:1]
 
         # Backward compatibility: Add draft-related attributes
         if not hasattr(franchise, 'scouting_points'):
@@ -2138,6 +2293,8 @@ def create_new_league():
                 team.te_starters = [p for p in team.players if p.position=="TE"][:2]
                 team.ol_starters = [p for p in team.players if p.position=="OL"][:5]
                 team.defense_starters = [p for p in team.players if p.position in ["DL","LB","CB","S"]]
+                team.k_starters = [p for p in team.players if p.position=="K"][:1]
+                team.p_starters = [p for p in team.players if p.position=="P"][:1]
                 team.league = league_name
                 team.division = div_name
                 leagues[league_name][div_name].append(team)
@@ -2247,7 +2404,8 @@ def run_franchise(franchise):
                 else:
                     matchup_str = f"{user_emoji} {user_team.name} @ {opp_emoji} {opponent.name}"
 
-                print(f"\n{'THIS WEEK\'S MATCHUP':^70}")
+                header = "THIS WEEK'S MATCHUP"
+                print(f"\n{header:^70}")
                 print(f"{'-'*70}")
                 print(f"{matchup_str}")
                 print(f"Record: {opponent.wins}-{opponent.losses} | {opponent.league} {opponent.division} | {div_rank}{get_ordinal(div_rank)} in Division")
@@ -2427,6 +2585,9 @@ def run_franchise(franchise):
                     player.prev_coverage = getattr(player, 'coverage', player.skill)
                     if player.position in ["DL", "LB"]:
                         player.prev_pass_rush = getattr(player, 'pass_rush', player.skill)
+                elif player.position in ["K", "P"]:
+                    player.prev_kicking_power = getattr(player, 'kicking_power', player.skill)
+                    player.prev_kicking_accuracy = getattr(player, 'kicking_accuracy', player.skill)
 
                 player.accumulate_to_career()
                 player.progress()
