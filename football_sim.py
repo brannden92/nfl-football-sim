@@ -215,6 +215,10 @@ class Player:
         self.years_played = 0
         self.retired = False
 
+        # Core attributes and potentials (affect in-game performance)
+        # Initialize based on skill level and position
+        self._initialize_attributes_and_potentials()
+
         # Season stats (current season only)
         self.pass_attempts = 0
         self.pass_completions = 0
@@ -273,6 +277,54 @@ class Player:
         self.career_fumble_recoveries = 0
         self.career_pass_deflections = 0
 
+    def _initialize_attributes_and_potentials(self):
+        """Initialize player attributes and their potentials based on position and skill"""
+        # Base variance for randomization
+        variance = random.randint(-5, 5)
+
+        # Universal attributes (all positions)
+        self.speed = min(99, max(50, self.skill + variance))
+        self.speed_potential = min(99, self.speed + random.randint(5, 15))
+
+        self.strength = min(99, max(50, self.skill + variance))
+        self.strength_potential = min(99, self.strength + random.randint(5, 15))
+
+        self.awareness = min(99, max(50, self.skill + variance))
+        self.awareness_potential = min(99, self.awareness + random.randint(5, 15))
+
+        # Position-specific attributes
+        if self.position == "QB":
+            self.throw_power = min(99, max(50, self.skill + variance))
+            self.throw_power_potential = min(99, self.throw_power + random.randint(5, 15))
+
+            self.throw_accuracy = min(99, max(50, self.skill + variance))
+            self.throw_accuracy_potential = min(99, self.throw_accuracy + random.randint(5, 15))
+
+        elif self.position in ["RB", "WR", "TE"]:
+            self.catching = min(99, max(50, self.skill + variance))
+            self.catching_potential = min(99, self.catching + random.randint(5, 15))
+
+            self.route_running = min(99, max(50, self.skill + variance))
+            self.route_running_potential = min(99, self.route_running + random.randint(5, 15))
+
+            if self.position == "RB":
+                self.carrying = min(99, max(50, self.skill + variance))
+                self.carrying_potential = min(99, self.carrying + random.randint(5, 15))
+
+                self.elusiveness = min(99, max(50, self.skill + variance))
+                self.elusiveness_potential = min(99, self.elusiveness + random.randint(5, 15))
+
+        elif self.position in ["DL", "LB", "CB", "S"]:
+            self.tackling = min(99, max(50, self.skill + variance))
+            self.tackling_potential = min(99, self.tackling + random.randint(5, 15))
+
+            self.coverage = min(99, max(50, self.skill + variance))
+            self.coverage_potential = min(99, self.coverage + random.randint(5, 15))
+
+            if self.position in ["DL", "LB"]:
+                self.pass_rush = min(99, max(50, self.skill + variance))
+                self.pass_rush_potential = min(99, self.pass_rush + random.randint(5, 15))
+
     def accumulate_to_career(self):
         """Add current season stats to career totals before resetting"""
         self.career_pass_attempts += self.pass_attempts
@@ -310,13 +362,73 @@ class Player:
             setattr(self, attr, 0)
 
     def progress(self):
+        """Progress player age and attributes based on potential"""
         if self.retired: return
-        if self.age <= 25: change = random.randint(0,3)
-        elif self.age <= 29: change = random.randint(-1,2)
-        else: change = random.randint(-3,1)
-        self.skill = max(50,min(99,self.skill+change))
+
+        # Determine progression rate based on age
+        if self.age <= 25:
+            change = random.randint(0, 3)
+            attr_progression = 0.6  # Young players improve faster
+        elif self.age <= 29:
+            change = random.randint(-1, 2)
+            attr_progression = 0.4  # Prime players maintain/slowly improve
+        else:
+            change = random.randint(-3, 1)
+            attr_progression = 0.1  # Older players decline or maintain
+
+        self.skill = max(50, min(99, self.skill + change))
+
+        # Progress each attribute toward its potential
+        self._progress_attribute('speed', 'speed_potential', attr_progression)
+        self._progress_attribute('strength', 'strength_potential', attr_progression)
+        self._progress_attribute('awareness', 'awareness_potential', attr_progression)
+
+        # Position-specific attribute progression
+        if self.position == "QB":
+            self._progress_attribute('throw_power', 'throw_power_potential', attr_progression)
+            self._progress_attribute('throw_accuracy', 'throw_accuracy_potential', attr_progression)
+
+        elif self.position in ["RB", "WR", "TE"]:
+            self._progress_attribute('catching', 'catching_potential', attr_progression)
+            self._progress_attribute('route_running', 'route_running_potential', attr_progression)
+
+            if self.position == "RB":
+                self._progress_attribute('carrying', 'carrying_potential', attr_progression)
+                self._progress_attribute('elusiveness', 'elusiveness_potential', attr_progression)
+
+        elif self.position in ["DL", "LB", "CB", "S"]:
+            self._progress_attribute('tackling', 'tackling_potential', attr_progression)
+            self._progress_attribute('coverage', 'coverage_potential', attr_progression)
+
+            if self.position in ["DL", "LB"]:
+                self._progress_attribute('pass_rush', 'pass_rush_potential', attr_progression)
+
         self.age += 1
         self.years_played += 1
+
+    def _progress_attribute(self, attr_name, potential_name, progression_rate):
+        """Progress a single attribute toward its potential"""
+        if not hasattr(self, attr_name) or not hasattr(self, potential_name):
+            return
+
+        current = getattr(self, attr_name)
+        potential = getattr(self, potential_name)
+
+        # Calculate how much room for growth
+        gap = potential - current
+
+        if gap > 0:
+            # Improve toward potential (with some randomness)
+            improvement = int(gap * progression_rate * random.uniform(0.3, 1.0))
+            new_value = min(potential, current + improvement)
+        else:
+            # Already at/above potential, small chance of decline with age
+            if self.age > 30 and random.random() < 0.3:
+                new_value = max(50, current - random.randint(0, 2))
+            else:
+                new_value = current
+
+        setattr(self, attr_name, new_value)
 
     def should_retire(self):
         return self.age >= 35
@@ -847,6 +959,74 @@ def view_franchise_history(franchise):
         print(table)
 
 # ============================
+# --- VIEW PLAYER ATTRIBUTE PROGRESSION ---
+# ============================
+def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION"):
+    """Display player attributes and potentials"""
+    print(f"\n{'='*80}")
+    print(f"{title}: {team.name}".center(80))
+    print(f"{'='*80}")
+
+    # Group by position
+    positions = {"QB": [], "RB": [], "WR": [], "TE": [], "DL": [], "LB": [], "CB": [], "S": []}
+
+    for player in team.players:
+        if player.position in positions:
+            positions[player.position].append(player)
+
+    for position, players in positions.items():
+        if not players:
+            continue
+
+        players_sorted = sorted(players, key=lambda p: p.skill, reverse=True)[:3]  # Top 3 per position
+
+        print(f"\n=== {position} ===")
+        table = PrettyTable()
+
+        # Determine columns based on position
+        if position == "QB":
+            table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Throw Pwr", "Pwr Pot", "Throw Acc", "Acc Pot"]
+            for p in players_sorted:
+                table.add_row([
+                    p.name, p.age, p.skill,
+                    getattr(p, 'speed', 'N/A'), getattr(p, 'speed_potential', 'N/A'),
+                    getattr(p, 'throw_power', 'N/A'), getattr(p, 'throw_power_potential', 'N/A'),
+                    getattr(p, 'throw_accuracy', 'N/A'), getattr(p, 'throw_accuracy_potential', 'N/A')
+                ])
+
+        elif position == "RB":
+            table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Elusiveness", "Elusive Pot", "Carrying", "Carry Pot"]
+            for p in players_sorted:
+                table.add_row([
+                    p.name, p.age, p.skill,
+                    getattr(p, 'speed', 'N/A'), getattr(p, 'speed_potential', 'N/A'),
+                    getattr(p, 'elusiveness', 'N/A'), getattr(p, 'elusiveness_potential', 'N/A'),
+                    getattr(p, 'carrying', 'N/A'), getattr(p, 'carrying_potential', 'N/A')
+                ])
+
+        elif position in ["WR", "TE"]:
+            table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Catching", "Catch Pot", "Route Run", "Route Pot"]
+            for p in players_sorted:
+                table.add_row([
+                    p.name, p.age, p.skill,
+                    getattr(p, 'speed', 'N/A'), getattr(p, 'speed_potential', 'N/A'),
+                    getattr(p, 'catching', 'N/A'), getattr(p, 'catching_potential', 'N/A'),
+                    getattr(p, 'route_running', 'N/A'), getattr(p, 'route_running_potential', 'N/A')
+                ])
+
+        elif position in ["DL", "LB", "CB", "S"]:
+            table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Tackling", "Tackle Pot", "Coverage", "Cover Pot"]
+            for p in players_sorted:
+                table.add_row([
+                    p.name, p.age, p.skill,
+                    getattr(p, 'speed', 'N/A'), getattr(p, 'speed_potential', 'N/A'),
+                    getattr(p, 'tackling', 'N/A'), getattr(p, 'tackling_potential', 'N/A'),
+                    getattr(p, 'coverage', 'N/A'), getattr(p, 'coverage_potential', 'N/A')
+                ])
+
+        print(table)
+
+# ============================
 # --- PLAYOFFS ---
 # ============================
 def run_playoffs(franchise):
@@ -868,11 +1048,16 @@ def run_playoffs(franchise):
         print(f"{i}. {team.name} ({team.wins}-{team.losses})")
     
     input("\nPress Enter to start Wild Card Round...")
-    
+
     # Wild Card Round
     print("\n" + "="*70)
     print("WILD CARD ROUND".center(70))
     print("="*70)
+
+    # Show teams with first-round BYE
+    print("\n*** FIRST ROUND BYE ***")
+    print(f"AFC: {afc_teams[0].name} ({afc_teams[0].wins}-{afc_teams[0].losses})")
+    print(f"NFC: {nfc_teams[0].name} ({nfc_teams[0].wins}-{nfc_teams[0].losses})")
 
     afc_wc_winners = []
     nfc_wc_winners = []
@@ -1010,6 +1195,10 @@ def load_franchise(filename="franchise_save.pkl"):
                     player.career_forced_fumbles = 0
                     player.career_fumble_recoveries = 0
                     player.career_pass_deflections = 0
+
+                # Backward compatibility: Add attribute potentials if they don't exist
+                if not hasattr(player, 'speed'):
+                    player._initialize_attributes_and_potentials()
 
         print(f"Loaded franchise from {filename}")
         return franchise
@@ -1177,6 +1366,10 @@ def run_franchise(franchise):
                     player.retired = True
                     retired_players.append(player)
                     print(f"{player.name} ({team.name}) has retired at age {player.age}")
+
+        # Show user team player progression
+        user_team = next(t for t in franchise.teams if t.name == franchise.user_team_name)
+        view_player_progression(user_team, f"SEASON {franchise.current_season} PLAYER DEVELOPMENT")
 
         franchise.current_season += 1
         franchise.current_week = 1
