@@ -215,7 +215,7 @@ class Player:
         self.years_played = 0
         self.retired = False
 
-        # Offensive stats
+        # Season stats (current season only)
         self.pass_attempts = 0
         self.pass_completions = 0
         self.pass_yards = 0
@@ -246,7 +246,60 @@ class Player:
         self.fumble_recoveries = 0
         self.pass_deflections = 0
 
-        self.reset_stats()
+        # Career stats (cumulative across all seasons)
+        self.career_pass_attempts = 0
+        self.career_pass_completions = 0
+        self.career_pass_yards = 0
+        self.career_pass_td = 0
+        self.career_interceptions = 0
+        self.career_sacks_taken = 0
+
+        self.career_rush_attempts = 0
+        self.career_rush_yards = 0
+        self.career_rush_td = 0
+        self.career_fumbles = 0
+
+        self.career_rec_targets = 0
+        self.career_rec_catches = 0
+        self.career_rec_yards = 0
+        self.career_rec_td = 0
+        self.career_drops = 0
+
+        self.career_tackles = 0
+        self.career_sacks = 0
+        self.career_qb_pressure = 0
+        self.career_interceptions_def = 0
+        self.career_forced_fumbles = 0
+        self.career_fumble_recoveries = 0
+        self.career_pass_deflections = 0
+
+    def accumulate_to_career(self):
+        """Add current season stats to career totals before resetting"""
+        self.career_pass_attempts += self.pass_attempts
+        self.career_pass_completions += self.pass_completions
+        self.career_pass_yards += self.pass_yards
+        self.career_pass_td += self.pass_td
+        self.career_interceptions += self.interceptions
+        self.career_sacks_taken += self.sacks_taken
+
+        self.career_rush_attempts += self.rush_attempts
+        self.career_rush_yards += self.rush_yards
+        self.career_rush_td += self.rush_td
+        self.career_fumbles += self.fumbles
+
+        self.career_rec_targets += self.rec_targets
+        self.career_rec_catches += self.rec_catches
+        self.career_rec_yards += self.rec_yards
+        self.career_rec_td += self.rec_td
+        self.career_drops += self.drops
+
+        self.career_tackles += self.tackles
+        self.career_sacks += self.sacks
+        self.career_qb_pressure += self.qb_pressure
+        self.career_interceptions_def += self.interceptions_def
+        self.career_forced_fumbles += self.forced_fumbles
+        self.career_fumble_recoveries += self.fumble_recoveries
+        self.career_pass_deflections += self.pass_deflections
 
     def reset_stats(self):
         attrs = ["pass_attempts","pass_completions","pass_yards","pass_td","interceptions",
@@ -305,6 +358,9 @@ class Franchise:
         self.user_team_name = user_team_name
         self.current_season = current_season
         self.current_week = current_week
+        # Season history: list of dicts with season results
+        if not hasattr(self, 'season_history'):
+            self.season_history = []
 
 # ============================
 # --- LOAD ROSTERS FROM EXCEL ---
@@ -708,6 +764,89 @@ def view_standings(teams, user_team_name=None):
             print(table)
 
 # ============================
+# --- VIEW CAREER STATS ---
+# ============================
+def print_career_stats(team):
+    """Print career stats for team players"""
+    print(f"\n=== CAREER STATS: {team.name} ===")
+
+    print("\n=== Career Passing Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Name", "Seasons", "Comp", "Att", "Comp%", "Yards", "TD", "INT", "Y/A"]
+    qbs = sorted([p for p in team.players if p.position == "QB" and p.career_pass_attempts > 0],
+                 key=lambda x: x.career_pass_yards, reverse=True)[:5]
+    for qb in qbs:
+        comp_pct = qb.career_pass_completions / qb.career_pass_attempts * 100 if qb.career_pass_attempts else 0
+        ypa = qb.career_pass_yards / qb.career_pass_attempts if qb.career_pass_attempts else 0
+        table.add_row([qb.name, qb.years_played, qb.career_pass_completions, qb.career_pass_attempts,
+                      round(comp_pct, 1), qb.career_pass_yards, qb.career_pass_td, qb.career_interceptions,
+                      round(ypa, 1)])
+    print(table)
+
+    print("\n=== Career Rushing Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Name", "Seasons", "Att", "Yards", "TD", "Y/A", "Fum"]
+    rushers = sorted([p for p in team.players if p.career_rush_attempts > 0],
+                     key=lambda x: x.career_rush_yards, reverse=True)[:5]
+    for rb in rushers:
+        ya = rb.career_rush_yards / rb.career_rush_attempts if rb.career_rush_attempts else 0
+        table.add_row([rb.name, rb.years_played, rb.career_rush_attempts, rb.career_rush_yards,
+                      rb.career_rush_td, round(ya, 1), rb.career_fumbles])
+    print(table)
+
+    print("\n=== Career Receiving Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Name", "Seasons", "Rec", "Targets", "Yards", "TD", "Y/R", "Drops"]
+    receivers = sorted([p for p in team.players if p.career_rec_targets > 0],
+                       key=lambda x: x.career_rec_yards, reverse=True)[:5]
+    for r in receivers:
+        ypr = r.career_rec_yards / r.career_rec_catches if r.career_rec_catches else 0
+        table.add_row([r.name, r.years_played, r.career_rec_catches, r.career_rec_targets,
+                      r.career_rec_yards, r.career_rec_td, round(ypr, 1), r.career_drops])
+    print(table)
+
+    print("\n=== Career Defensive Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Name", "Seasons", "Tackles", "Sacks", "QB Press", "INT", "FF", "FR", "PD"]
+    defenders = sorted([p for p in team.players if p.position in ["DL", "LB", "CB", "S"]],
+                       key=lambda x: (x.career_tackles + x.career_sacks), reverse=True)[:5]
+    for d in defenders:
+        table.add_row([d.name, d.years_played, d.career_tackles, d.career_sacks, d.career_qb_pressure,
+                      d.career_interceptions_def, d.career_forced_fumbles, d.career_fumble_recoveries,
+                      d.career_pass_deflections])
+    print(table)
+
+# ============================
+# --- VIEW FRANCHISE HISTORY ---
+# ============================
+def view_franchise_history(franchise):
+    """Display historical season results"""
+    if not franchise.season_history:
+        print("\nNo franchise history available yet.")
+        return
+
+    print(f"\n{'='*70}")
+    print("FRANCHISE HISTORY".center(70))
+    print(f"{'='*70}")
+
+    for season_result in franchise.season_history:
+        season_num = season_result['season']
+        champion = season_result['champion']
+
+        print(f"\n=== SEASON {season_num} ===")
+        print(f"Champion: {champion}")
+
+        print("\nFinal Standings (Top 10):")
+        table = PrettyTable()
+        table.field_names = ["Rank", "Team", "W", "L", "PF", "PA", "Diff"]
+
+        for rank, (name, wins, losses, pf, pa) in enumerate(season_result['standings'][:10], 1):
+            marker = " 🏆" if name == champion else ""
+            table.add_row([rank, name + marker, wins, losses, pf, pa, pf - pa])
+
+        print(table)
+
+# ============================
 # --- PLAYOFFS ---
 # ============================
 def run_playoffs(franchise):
@@ -833,6 +972,38 @@ def load_franchise(filename="franchise_save.pkl"):
     try:
         with open(filename,"rb") as f:
             franchise = pickle.load(f)
+
+        # Backward compatibility: Add season_history if it doesn't exist
+        if not hasattr(franchise, 'season_history'):
+            franchise.season_history = []
+
+        # Backward compatibility: Add career stats to players if they don't exist
+        for team in franchise.teams:
+            for player in team.players:
+                if not hasattr(player, 'career_pass_attempts'):
+                    player.career_pass_attempts = 0
+                    player.career_pass_completions = 0
+                    player.career_pass_yards = 0
+                    player.career_pass_td = 0
+                    player.career_interceptions = 0
+                    player.career_sacks_taken = 0
+                    player.career_rush_attempts = 0
+                    player.career_rush_yards = 0
+                    player.career_rush_td = 0
+                    player.career_fumbles = 0
+                    player.career_rec_targets = 0
+                    player.career_rec_catches = 0
+                    player.career_rec_yards = 0
+                    player.career_rec_td = 0
+                    player.career_drops = 0
+                    player.career_tackles = 0
+                    player.career_sacks = 0
+                    player.career_qb_pressure = 0
+                    player.career_interceptions_def = 0
+                    player.career_forced_fumbles = 0
+                    player.career_fumble_recoveries = 0
+                    player.career_pass_deflections = 0
+
         print(f"Loaded franchise from {filename}")
         return franchise
     except:
@@ -906,14 +1077,16 @@ def run_franchise(franchise):
             print(f"{'='*70}")
             
             user_team = next(t for t in franchise.teams if t.name == franchise.user_team_name)
-            
+
             print("1. Simulate Week")
-            print("2. View Last Game's Stats")        # renamed
-            print("3. View Your Team Season Stats")   # new accumulated season view
-            print("4. View Other Team Stats")
-            print("5. View Standings")
-            print("6. Save Franchise")
-            print("7. Quit")
+            print("2. View Last Game's Stats")
+            print("3. View Your Team Season Stats")
+            print("4. View Your Team Career Stats")
+            print("5. View Other Team Stats")
+            print("6. View Standings")
+            print("7. View Franchise History")
+            print("8. Save Franchise")
+            print("9. Quit")
             choice = input("> ").strip()
 
             if choice == "1":
@@ -936,6 +1109,10 @@ def run_franchise(franchise):
                 print_team_stats(user_team, games_played)
 
             elif choice == "4":
+                # Career stats
+                print_career_stats(user_team)
+
+            elif choice == "5":
                 games_played = franchise.current_week - 1
                 for idx, t in enumerate(franchise.teams):
                     print(f"{idx+1}. {t.name}")
@@ -946,13 +1123,16 @@ def run_franchise(franchise):
                 except:
                     print("Invalid selection.")
 
-            elif choice == "5":
+            elif choice == "6":
                 view_standings(franchise.teams, user_team_name=franchise.user_team_name)
 
-            elif choice == "6":
+            elif choice == "7":
+                view_franchise_history(franchise)
+
+            elif choice == "8":
                 save_franchise(franchise)
 
-            elif choice == "7":
+            elif choice == "9":
                 save_franchise(franchise)
                 return
 
@@ -968,20 +1148,32 @@ def run_franchise(franchise):
         
         input("\nPress Enter to start the playoffs...")
         champion = run_playoffs(franchise)
-        
+
+        # Save season results to history
+        season_result = {
+            'season': franchise.current_season,
+            'champion': champion.name,
+            'standings': [(t.name, t.wins, t.losses, t.points_for, t.points_against) for t in
+                         sorted(franchise.teams, key=lambda x: (x.wins, x.points_for - x.points_against), reverse=True)]
+        }
+        franchise.season_history.append(season_result)
+
         # Progress players (aging, skill changes, retirements)
         print("\n=== OFF-SEASON ===")
+
+        # Accumulate season stats to career stats BEFORE resetting
         for team in franchise.teams:
             for player in team.players:
+                player.accumulate_to_career()
                 player.progress()
                 if player.should_retire() and not player.retired:
                     player.retired = True
                     retired_players.append(player)
                     print(f"{player.name} ({team.name}) has retired at age {player.age}")
-        
+
         franchise.current_season += 1
         franchise.current_week = 1
-        
+
         input("\nPress Enter to continue to next season...")
     
     print("\n" + "="*70)
