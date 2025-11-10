@@ -215,9 +215,17 @@ class Player:
         self.years_played = 0
         self.retired = False
 
+        # Rookie tracking for scouting system
+        self.is_rookie = (age <= 22)  # Players 22 or younger are considered rookies
+        self.scouting_variance = {}  # Store variance offsets for consistency
+
         # Core attributes and potentials (affect in-game performance)
         # Initialize based on skill level and position
         self._initialize_attributes_and_potentials()
+
+        # Initialize scouting variance for rookies
+        if self.is_rookie:
+            self._initialize_scouting_variance()
 
         # Season stats (current season only)
         self.pass_attempts = 0
@@ -325,6 +333,63 @@ class Player:
                 self.pass_rush = min(99, max(50, self.skill + variance))
                 self.pass_rush_potential = min(99, self.pass_rush + random.randint(5, 15))
 
+    def _initialize_scouting_variance(self):
+        """Initialize consistent variance for rookie scouting (only called for rookies)"""
+        # Core attributes that need consistent variance
+        attributes = ['speed', 'strength', 'awareness']
+
+        # Position-specific attributes
+        if self.position == "QB":
+            attributes.extend(['throw_power', 'throw_accuracy'])
+        elif self.position in ["RB", "WR", "TE"]:
+            attributes.extend(['catching', 'route_running'])
+            if self.position == "RB":
+                attributes.extend(['carrying', 'elusiveness'])
+        elif self.position in ["DL", "LB", "CB", "S"]:
+            attributes.extend(['tackling', 'coverage'])
+            if self.position in ["DL", "LB"]:
+                attributes.append('pass_rush')
+
+        # Assign random variance for each attribute (will be consistent throughout rookie year)
+        for attr in attributes:
+            if hasattr(self, attr):
+                # Speed and throw_power get smaller variance
+                if attr in ['speed', 'throw_power']:
+                    self.scouting_variance[attr] = random.randint(-5, 5)
+                else:
+                    self.scouting_variance[attr] = random.randint(-15, 15)
+
+    def get_scouted_rating(self, attribute_name, current_week=1):
+        """Get the scouted rating for an attribute based on current week (rookies only)"""
+        if not hasattr(self, attribute_name):
+            return None
+
+        actual_value = getattr(self, attribute_name)
+
+        # Non-rookies always show actual ratings
+        if not self.is_rookie:
+            return actual_value
+
+        # Get the stored variance for this attribute
+        base_variance = self.scouting_variance.get(attribute_name, 0)
+
+        # Determine accuracy based on week
+        if current_week >= 15:
+            # Week 15+: Show actual ratings
+            return actual_value
+        elif current_week >= 8:
+            # Week 8-14: Reduce variance
+            if attribute_name in ['speed', 'throw_power']:
+                # Scale down from +/-5 to +/-3
+                adjusted_variance = int(base_variance * 0.6)  # 3/5 = 0.6
+            else:
+                # Scale down from +/-15 to +/-10
+                adjusted_variance = int(base_variance * 0.67)  # 10/15 = 0.67
+            return max(50, min(99, actual_value + adjusted_variance))
+        else:
+            # Week 1-7: Full variance
+            return max(50, min(99, actual_value + base_variance))
+
     def accumulate_to_career(self):
         """Add current season stats to career totals before resetting"""
         self.career_pass_attempts += self.pass_attempts
@@ -405,6 +470,11 @@ class Player:
 
         self.age += 1
         self.years_played += 1
+
+        # After first season, rookie status is cleared (ratings become accurate)
+        if self.is_rookie and self.years_played >= 1:
+            self.is_rookie = False
+            self.scouting_variance = {}  # Clear variance as it's no longer needed
 
     def _progress_attribute(self, attr_name, potential_name, progression_rate):
         """Progress a single attribute toward its potential"""
@@ -961,8 +1031,8 @@ def view_franchise_history(franchise):
 # ============================
 # --- VIEW PLAYER ATTRIBUTE PROGRESSION ---
 # ============================
-def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION"):
-    """Display player attributes and potentials"""
+def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_week=17):
+    """Display player attributes and potentials (with scouting accuracy for rookies)"""
     print(f"\n{'='*80}")
     print(f"{title}: {team.name}".center(80))
     print(f"{'='*80}")
@@ -987,41 +1057,46 @@ def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION"):
         if position == "QB":
             table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Throw Pwr", "Pwr Pot", "Throw Acc", "Acc Pot"]
             for p in players_sorted:
+                # Add rookie indicator if applicable
+                name_display = p.name + (" (R)" if p.is_rookie else "")
                 table.add_row([
-                    p.name, p.age, p.skill,
-                    getattr(p, 'speed', 'N/A'), getattr(p, 'speed_potential', 'N/A'),
-                    getattr(p, 'throw_power', 'N/A'), getattr(p, 'throw_power_potential', 'N/A'),
-                    getattr(p, 'throw_accuracy', 'N/A'), getattr(p, 'throw_accuracy_potential', 'N/A')
+                    name_display, p.age, p.skill,
+                    p.get_scouted_rating('speed', current_week) or 'N/A', getattr(p, 'speed_potential', 'N/A'),
+                    p.get_scouted_rating('throw_power', current_week) or 'N/A', getattr(p, 'throw_power_potential', 'N/A'),
+                    p.get_scouted_rating('throw_accuracy', current_week) or 'N/A', getattr(p, 'throw_accuracy_potential', 'N/A')
                 ])
 
         elif position == "RB":
             table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Elusiveness", "Elusive Pot", "Carrying", "Carry Pot"]
             for p in players_sorted:
+                name_display = p.name + (" (R)" if p.is_rookie else "")
                 table.add_row([
-                    p.name, p.age, p.skill,
-                    getattr(p, 'speed', 'N/A'), getattr(p, 'speed_potential', 'N/A'),
-                    getattr(p, 'elusiveness', 'N/A'), getattr(p, 'elusiveness_potential', 'N/A'),
-                    getattr(p, 'carrying', 'N/A'), getattr(p, 'carrying_potential', 'N/A')
+                    name_display, p.age, p.skill,
+                    p.get_scouted_rating('speed', current_week) or 'N/A', getattr(p, 'speed_potential', 'N/A'),
+                    p.get_scouted_rating('elusiveness', current_week) or 'N/A', getattr(p, 'elusiveness_potential', 'N/A'),
+                    p.get_scouted_rating('carrying', current_week) or 'N/A', getattr(p, 'carrying_potential', 'N/A')
                 ])
 
         elif position in ["WR", "TE"]:
             table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Catching", "Catch Pot", "Route Run", "Route Pot"]
             for p in players_sorted:
+                name_display = p.name + (" (R)" if p.is_rookie else "")
                 table.add_row([
-                    p.name, p.age, p.skill,
-                    getattr(p, 'speed', 'N/A'), getattr(p, 'speed_potential', 'N/A'),
-                    getattr(p, 'catching', 'N/A'), getattr(p, 'catching_potential', 'N/A'),
-                    getattr(p, 'route_running', 'N/A'), getattr(p, 'route_running_potential', 'N/A')
+                    name_display, p.age, p.skill,
+                    p.get_scouted_rating('speed', current_week) or 'N/A', getattr(p, 'speed_potential', 'N/A'),
+                    p.get_scouted_rating('catching', current_week) or 'N/A', getattr(p, 'catching_potential', 'N/A'),
+                    p.get_scouted_rating('route_running', current_week) or 'N/A', getattr(p, 'route_running_potential', 'N/A')
                 ])
 
         elif position in ["DL", "LB", "CB", "S"]:
             table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Tackling", "Tackle Pot", "Coverage", "Cover Pot"]
             for p in players_sorted:
+                name_display = p.name + (" (R)" if p.is_rookie else "")
                 table.add_row([
-                    p.name, p.age, p.skill,
-                    getattr(p, 'speed', 'N/A'), getattr(p, 'speed_potential', 'N/A'),
-                    getattr(p, 'tackling', 'N/A'), getattr(p, 'tackling_potential', 'N/A'),
-                    getattr(p, 'coverage', 'N/A'), getattr(p, 'coverage_potential', 'N/A')
+                    name_display, p.age, p.skill,
+                    p.get_scouted_rating('speed', current_week) or 'N/A', getattr(p, 'speed_potential', 'N/A'),
+                    p.get_scouted_rating('tackling', current_week) or 'N/A', getattr(p, 'tackling_potential', 'N/A'),
+                    p.get_scouted_rating('coverage', current_week) or 'N/A', getattr(p, 'coverage_potential', 'N/A')
                 ])
 
         print(table)
@@ -1200,6 +1275,12 @@ def load_franchise(filename="franchise_save.pkl"):
                 if not hasattr(player, 'speed'):
                     player._initialize_attributes_and_potentials()
 
+                # Backward compatibility: Add rookie tracking if it doesn't exist
+                if not hasattr(player, 'is_rookie'):
+                    # Existing players are not rookies
+                    player.is_rookie = False
+                    player.scouting_variance = {}
+
         print(f"Loaded franchise from {filename}")
         return franchise
     except:
@@ -1369,7 +1450,8 @@ def run_franchise(franchise):
 
         # Show user team player progression
         user_team = next(t for t in franchise.teams if t.name == franchise.user_team_name)
-        view_player_progression(user_team, f"SEASON {franchise.current_season} PLAYER DEVELOPMENT")
+        # Pass week 18 so all ratings are revealed after season ends
+        view_player_progression(user_team, f"SEASON {franchise.current_season} PLAYER DEVELOPMENT", current_week=18)
 
         franchise.current_season += 1
         franchise.current_week = 1
