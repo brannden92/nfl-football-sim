@@ -553,6 +553,50 @@ class Player:
 
         setattr(self, attr_name, new_value)
 
+    def get_overall_potential(self):
+        """Calculate overall potential as average of all attribute potentials"""
+        potentials = []
+
+        # Universal attributes
+        if hasattr(self, 'speed_potential'):
+            potentials.append(self.speed_potential)
+        if hasattr(self, 'strength_potential'):
+            potentials.append(self.strength_potential)
+        if hasattr(self, 'awareness_potential'):
+            potentials.append(self.awareness_potential)
+
+        # Position-specific attributes
+        if self.position == "QB":
+            if hasattr(self, 'throw_power_potential'):
+                potentials.append(self.throw_power_potential)
+            if hasattr(self, 'throw_accuracy_potential'):
+                potentials.append(self.throw_accuracy_potential)
+
+        elif self.position in ["RB", "WR", "TE"]:
+            if hasattr(self, 'catching_potential'):
+                potentials.append(self.catching_potential)
+            if hasattr(self, 'route_running_potential'):
+                potentials.append(self.route_running_potential)
+            if self.position == "RB":
+                if hasattr(self, 'carrying_potential'):
+                    potentials.append(self.carrying_potential)
+                if hasattr(self, 'elusiveness_potential'):
+                    potentials.append(self.elusiveness_potential)
+
+        elif self.position in ["DL", "LB", "CB", "S"]:
+            if hasattr(self, 'tackling_potential'):
+                potentials.append(self.tackling_potential)
+            if hasattr(self, 'coverage_potential'):
+                potentials.append(self.coverage_potential)
+            if self.position in ["DL", "LB"]:
+                if hasattr(self, 'pass_rush_potential'):
+                    potentials.append(self.pass_rush_potential)
+
+        # Return average potential
+        if potentials:
+            return int(sum(potentials) / len(potentials))
+        return self.skill  # Fallback to skill if no potentials found
+
     def should_retire(self):
         return self.age >= 35
     
@@ -755,14 +799,42 @@ def run_scouting(franchise):
                 print("Invalid investment amount.")
 
         elif choice == "3":
-            # View scouted players
+            # View scouted players with their ratings
             scouted = [(name, pts) for name, pts in franchise.scouting_investment.items()]
             if not scouted:
                 print("\nNo players scouted yet.")
             else:
                 print("\n=== Scouted Players ===")
+                table = PrettyTable()
+                table.field_names = ["Name", "Pos", "Age", "Skill", "Speed", "Strength", "Key Attr", "Scout Pts"]
+
                 for name, pts in sorted(scouted, key=lambda x: x[1], reverse=True):
-                    print(f"{name}: {pts} points")
+                    prospect = next((p for p in franchise.draft_prospects if p.name == name), None)
+                    if prospect:
+                        # Get scouted ratings based on investment
+                        speed = prospect.get_draft_rating('speed', pts)
+                        strength = prospect.get_draft_rating('strength', pts)
+
+                        # Show position-specific key attribute
+                        if prospect.position == "QB":
+                            key_attr = f"Pwr:{prospect.get_draft_rating('throw_power', pts)}"
+                        elif prospect.position in ["RB", "WR", "TE"]:
+                            key_attr = f"Catch:{prospect.get_draft_rating('catching', pts)}"
+                        else:  # Defense
+                            key_attr = f"Tack:{prospect.get_draft_rating('tackling', pts)}"
+
+                        table.add_row([
+                            prospect.name,
+                            prospect.position,
+                            prospect.age,
+                            prospect.skill,
+                            speed,
+                            strength,
+                            key_attr,
+                            f"★{pts}"
+                        ])
+
+                print(table)
 
         elif choice == "4":
             break
@@ -772,37 +844,42 @@ def run_scouting(franchise):
 # ============================
 def view_draft_prospects(prospects, scouting_investment):
     """Display draft prospects with scouted ratings"""
-    print(f"\n{'='*100}")
-    print("DRAFT PROSPECTS".center(100))
-    print(f"{'='*100}")
+    print(f"\n{'='*110}")
+    print("DRAFT PROSPECTS".center(110))
+    print(f"{'='*110}")
+
+    # Sort prospects by overall skill (highest to lowest)
+    sorted_prospects = sorted(prospects, key=lambda p: p.skill, reverse=True)
 
     table = PrettyTable()
-    table.field_names = ["Name", "Pos", "Age", "Skill", "Speed", "Throw Pwr", "Catch", "Tackle", "Scout Pts"]
+    table.field_names = ["Name", "Pos", "Age", "Skill", "Potential", "Speed", "Strength", "Key Attr", "Scout Pts"]
 
-    for prospect in prospects:
+    for prospect in sorted_prospects:
         scout_pts = scouting_investment.get(prospect.name, 0)
+
+        # Get overall potential
+        overall_potential = prospect.get_overall_potential()
 
         # Show different attributes based on position
         if prospect.position == "QB":
             attr1 = prospect.get_draft_rating('throw_power', scout_pts) or 'N/A'
-            attr2 = prospect.get_draft_rating('throw_accuracy', scout_pts) or 'N/A'
-            label = f"Pwr:{attr1}/Acc:{attr2}"
+            key_attr = f"Pwr:{attr1}"
         elif prospect.position in ["RB", "WR", "TE"]:
             attr1 = prospect.get_draft_rating('catching', scout_pts) or 'N/A'
-            label = f"{attr1}"
+            key_attr = f"Catch:{attr1}"
         else:  # Defense
             attr1 = prospect.get_draft_rating('tackling', scout_pts) or 'N/A'
-            label = f"{attr1}"
+            key_attr = f"Tack:{attr1}"
 
         table.add_row([
             prospect.name,
             prospect.position,
             prospect.age,
             prospect.skill,
+            overall_potential,
             prospect.get_draft_rating('speed', scout_pts) or 'N/A',
-            attr1 if prospect.position == "QB" else "N/A",
-            attr1 if prospect.position in ["RB", "WR", "TE"] else "N/A",
-            attr1 if prospect.position in ["DL", "LB", "CB", "S"] else "N/A",
+            prospect.get_draft_rating('strength', scout_pts) or 'N/A',
+            key_attr,
             f"★{scout_pts}" if scout_pts > 0 else "-"
         ])
 
@@ -1400,9 +1477,9 @@ def view_franchise_history(franchise):
 # ============================
 def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_week=17):
     """Display player attributes and potentials (with scouting accuracy for rookies)"""
-    print(f"\n{'='*80}")
-    print(f"{title}: {team.name}".center(80))
-    print(f"{'='*80}")
+    print(f"\n{'='*100}")
+    print(f"{title}: {team.name}".center(100))
+    print(f"{'='*100}")
 
     # Group by position
     positions = {"QB": [], "RB": [], "WR": [], "TE": [], "DL": [], "LB": [], "CB": [], "S": []}
@@ -1422,48 +1499,52 @@ def view_player_progression(team, title="PLAYER ATTRIBUTE PROGRESSION", current_
 
         # Determine columns based on position
         if position == "QB":
-            table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Throw Pwr", "Pwr Pot", "Throw Acc", "Acc Pot"]
+            table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Throw Pwr", "Throw Acc"]
             for p in players_sorted:
                 # Add rookie indicator if applicable
                 name_display = p.name + (" (R)" if p.is_rookie else "")
                 table.add_row([
-                    name_display, p.age, p.skill,
-                    p.get_scouted_rating('speed', current_week) or 'N/A', getattr(p, 'speed_potential', 'N/A'),
-                    p.get_scouted_rating('throw_power', current_week) or 'N/A', getattr(p, 'throw_power_potential', 'N/A'),
-                    p.get_scouted_rating('throw_accuracy', current_week) or 'N/A', getattr(p, 'throw_accuracy_potential', 'N/A')
+                    name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('throw_power', current_week) or 'N/A',
+                    p.get_scouted_rating('throw_accuracy', current_week) or 'N/A'
                 ])
 
         elif position == "RB":
-            table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Elusiveness", "Elusive Pot", "Carrying", "Carry Pot"]
+            table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Elusiveness", "Carrying"]
             for p in players_sorted:
                 name_display = p.name + (" (R)" if p.is_rookie else "")
                 table.add_row([
-                    name_display, p.age, p.skill,
-                    p.get_scouted_rating('speed', current_week) or 'N/A', getattr(p, 'speed_potential', 'N/A'),
-                    p.get_scouted_rating('elusiveness', current_week) or 'N/A', getattr(p, 'elusiveness_potential', 'N/A'),
-                    p.get_scouted_rating('carrying', current_week) or 'N/A', getattr(p, 'carrying_potential', 'N/A')
+                    name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('elusiveness', current_week) or 'N/A',
+                    p.get_scouted_rating('carrying', current_week) or 'N/A'
                 ])
 
         elif position in ["WR", "TE"]:
-            table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Catching", "Catch Pot", "Route Run", "Route Pot"]
+            table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Catching", "Route Run"]
             for p in players_sorted:
                 name_display = p.name + (" (R)" if p.is_rookie else "")
                 table.add_row([
-                    name_display, p.age, p.skill,
-                    p.get_scouted_rating('speed', current_week) or 'N/A', getattr(p, 'speed_potential', 'N/A'),
-                    p.get_scouted_rating('catching', current_week) or 'N/A', getattr(p, 'catching_potential', 'N/A'),
-                    p.get_scouted_rating('route_running', current_week) or 'N/A', getattr(p, 'route_running_potential', 'N/A')
+                    name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('catching', current_week) or 'N/A',
+                    p.get_scouted_rating('route_running', current_week) or 'N/A'
                 ])
 
         elif position in ["DL", "LB", "CB", "S"]:
-            table.field_names = ["Name", "Age", "Skill", "Speed", "Speed Pot", "Tackling", "Tackle Pot", "Coverage", "Cover Pot"]
+            table.field_names = ["Name", "Age", "Skill", "Potential", "Speed", "Strength", "Tackling", "Coverage"]
             for p in players_sorted:
                 name_display = p.name + (" (R)" if p.is_rookie else "")
                 table.add_row([
-                    name_display, p.age, p.skill,
-                    p.get_scouted_rating('speed', current_week) or 'N/A', getattr(p, 'speed_potential', 'N/A'),
-                    p.get_scouted_rating('tackling', current_week) or 'N/A', getattr(p, 'tackling_potential', 'N/A'),
-                    p.get_scouted_rating('coverage', current_week) or 'N/A', getattr(p, 'coverage_potential', 'N/A')
+                    name_display, p.age, p.skill, p.get_overall_potential(),
+                    p.get_scouted_rating('speed', current_week) or 'N/A',
+                    p.get_scouted_rating('strength', current_week) or 'N/A',
+                    p.get_scouted_rating('tackling', current_week) or 'N/A',
+                    p.get_scouted_rating('coverage', current_week) or 'N/A'
                 ])
 
         print(table)
