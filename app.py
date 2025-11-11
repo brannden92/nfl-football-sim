@@ -494,8 +494,8 @@ def api_simulate_game():
         # Simulate user's playoff game
         winner = simulate_game(user_team, opponent, user_team=user_team.name, is_playoff=True)
 
-        # Get play-by-play
-        plays = user_team.last_game_plays if not fast_sim else []
+        # Get play-by-play (always include plays now)
+        plays = user_team.last_game_plays
 
         # Simulate other playoff games in this round
         other_games = []
@@ -527,8 +527,8 @@ def api_simulate_game():
         # Simulate the user's game
         winner = simulate_game(user_team, opponent, user_team=user_team.name, is_playoff=False)
 
-        # Get play-by-play for user's game
-        plays = user_team.last_game_plays if not fast_sim else []
+        # Get play-by-play for user's game (always include plays now)
+        plays = user_team.last_game_plays
 
         # Simulate all other games in the league for this week
         other_games = []

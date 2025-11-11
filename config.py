@@ -17,5 +17,9 @@ STAT_ATTRS = [
     "rec_targets", "rec_catches", "rec_yards", "rec_td", "drops", "longest_rec",
     # Defense
     "tackles", "sacks", "qb_pressure", "interceptions_def",
-    "forced_fumbles", "fumble_recoveries", "pass_deflections"
+    "forced_fumbles", "fumble_recoveries", "pass_deflections",
+    # Kicking
+    "fg_attempts", "fg_made", "longest_fg", "xp_attempts", "xp_made",
+    # Punting
+    "punt_attempts", "punt_yards", "longest_punt", "inside_20"
 ]

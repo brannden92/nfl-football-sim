@@ -59,6 +59,19 @@ class Player:
         self.drops = 0
         self.longest_rec = 0
 
+        # Kicker stats
+        self.fg_attempts = 0
+        self.fg_made = 0
+        self.longest_fg = 0
+        self.xp_attempts = 0
+        self.xp_made = 0
+
+        # Punter stats
+        self.punt_attempts = 0
+        self.punt_yards = 0
+        self.longest_punt = 0
+        self.inside_20 = 0
+
         # Career stats (accumulated across all seasons)
         self.career_stats = {
             "pass_attempts": 0, "pass_completions": 0, "pass_yards": 0, "pass_td": 0,
@@ -67,7 +80,9 @@ class Player:
             "rec_targets": 0, "rec_catches": 0, "rec_yards": 0, "rec_td": 0,
             "drops": 0, "longest_rec": 0,
             "tackles": 0, "sacks": 0, "qb_pressure": 0, "interceptions_def": 0,
-            "forced_fumbles": 0, "fumble_recoveries": 0, "pass_deflections": 0
+            "forced_fumbles": 0, "fumble_recoveries": 0, "pass_deflections": 0,
+            "fg_attempts": 0, "fg_made": 0, "longest_fg": 0, "xp_attempts": 0, "xp_made": 0,
+            "punt_attempts": 0, "punt_yards": 0, "longest_punt": 0, "inside_20": 0
         }
 
         self.reset_stats()
@@ -313,7 +328,9 @@ class Player:
             "longest_pass", "sacks_taken", "rush_attempts", "rush_yards", "rush_td",
             "longest_rush", "fumbles", "rec_targets", "rec_catches", "rec_yards", "rec_td",
             "drops", "longest_rec", "tackles", "sacks", "qb_pressure", "interceptions_def",
-            "forced_fumbles", "fumble_recoveries", "pass_deflections"
+            "forced_fumbles", "fumble_recoveries", "pass_deflections",
+            "fg_attempts", "fg_made", "longest_fg", "xp_attempts", "xp_made",
+            "punt_attempts", "punt_yards", "longest_punt", "inside_20"
         ]
         for attr in attrs:
             setattr(self, attr, 0)
@@ -412,7 +429,9 @@ class Player:
             "sacks_taken", "rush_attempts", "rush_yards", "rush_td", "fumbles",
             "rec_targets", "rec_catches", "rec_yards", "rec_td", "drops",
             "tackles", "sacks", "qb_pressure", "interceptions_def",
-            "forced_fumbles", "fumble_recoveries", "pass_deflections"
+            "forced_fumbles", "fumble_recoveries", "pass_deflections",
+            "fg_attempts", "fg_made", "xp_attempts", "xp_made",
+            "punt_attempts", "punt_yards", "inside_20"
         ]
 
         for attr in stat_attrs:
@@ -425,3 +444,7 @@ class Player:
             self.career_stats["longest_rush"] = self.longest_rush
         if self.longest_rec > self.career_stats.get("longest_rec", 0):
             self.career_stats["longest_rec"] = self.longest_rec
+        if self.longest_fg > self.career_stats.get("longest_fg", 0):
+            self.career_stats["longest_fg"] = self.longest_fg
+        if self.longest_punt > self.career_stats.get("longest_punt", 0):
+            self.career_stats["longest_punt"] = self.longest_punt

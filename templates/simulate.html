@@ -257,6 +257,11 @@
                 <h5>Play-by-Play</h5>
             </div>
             <div class="card-body">
+                <!-- Field Position Visualization -->
+                <div id="field-position" class="mb-3 p-3 bg-light border rounded" style="font-family: monospace; font-size: 12px; white-space: pre; overflow-x: auto;">
+                    <div id="field-display" class="text-center"></div>
+                </div>
+
                 <div id="playbyplay" style="max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 14px;">
                 </div>
             </div>
@@ -274,6 +279,9 @@ let gameData = null;
 let currentOffense = null;  // Track which team has the ball
 let userScore = 0;
 let opponentScore = 0;
+let currentFieldPosition = 25;  // 0-100 yard line
+let offenseAbbrev = '';
+let defenseAbbrev = '';
 const userTeamName = "{{ user_team.name }}";
 const opponentTeamName = "{{ opponent.name }}";
 
@@ -314,13 +322,14 @@ function simulateGame(fastSim) {
         plays = data.plays || [];
         playIndex = 0;
 
-        if (fastSim || plays.length === 0) {
-            // Fast sim - just show results
+        if (plays.length === 0) {
+            // No plays - just show results
             showGameResults(data);
         } else {
-            // Show play-by-play
+            // Show play-by-play (faster for quick sim)
             playbyplayCard.style.display = 'block';
-            intervalId = setInterval(displayNextPlay, 200);
+            const delay = fastSim ? 10 : 200;  // Much faster for quick sim
+            intervalId = setInterval(displayNextPlay, delay);
             status.textContent = 'Game in progress...';
         }
     })
@@ -372,6 +381,9 @@ function displayNextPlay() {
     const play = plays[playIndex];
     const playDiv = document.getElementById('playbyplay');
 
+    // Update field position visualization
+    updateFieldPosition(play);
+
     // Check if this is a drive header to track which team has the ball
     if (play.includes('---') && play.includes('starts at')) {
         if (play.includes(userTeamName)) {
@@ -420,6 +432,102 @@ function displayNextPlay() {
     playDiv.scrollTop = playDiv.scrollHeight;
 
     playIndex++;
+}
+
+function getTeamAbbrev(teamName) {
+    const words = teamName.split(' ');
+    if (words.length >= 2) {
+        return words[words.length - 1].substring(0, 3).toUpperCase();
+    }
+    return teamName.substring(0, 3).toUpperCase();
+}
+
+function parseFieldPosition(play) {
+    // Look for field position format like "at DET 43" or "at OWN 25" or "at 50"
+    const fieldPosMatch = play.match(/at\s+(\w+)\s+(\d+)/);
+    if (fieldPosMatch) {
+        const zone = fieldPosMatch[1];
+        const yardLine = parseInt(fieldPosMatch[2]);
+
+        if (zone === 'OWN') {
+            return yardLine;
+        } else if (zone === '50') {
+            return 50;
+        } else {
+            // Opponent territory
+            return 100 - yardLine;
+        }
+    }
+    return null;
+}
+
+function renderField() {
+    if (!offenseAbbrev || !defenseAbbrev) return;
+
+    const fieldDisplay = document.getElementById('field-display');
+    let fieldHtml = '';
+
+    // Calculate ball position (0-100 scale)
+    let ballPos = currentFieldPosition;
+    let yardsToGoal = 100 - ballPos;
+
+    // Create field visualization
+    // Left side is always offense's goal (0), right side is defense's goal (100)
+    const width = 60; // characters
+    const ballPosition = Math.floor((ballPos / 100) * width);
+
+    let field = '';
+
+    // Build the field string
+    for (let i = 0; i <= width; i++) {
+        if (i === 0) {
+            field += offenseAbbrev;
+        } else if (i === width) {
+            field += defenseAbbrev;
+        } else if (i === ballPosition) {
+            field += '🏈';
+        } else if (i % 6 === 0) {
+            field += '|';
+        } else {
+            field += '-';
+        }
+    }
+
+    fieldHtml = `<div style="font-size: 14px; font-weight: bold;">${field}</div>`;
+    fieldHtml += `<div style="font-size: 11px; margin-top: 5px;">`;
+
+    if (ballPos === 50) {
+        fieldHtml += `Ball at: 50 yard line (${yardsToGoal} yards to goal)`;
+    } else if (ballPos < 50) {
+        fieldHtml += `Ball at: ${offenseAbbrev} ${ballPos} (${yardsToGoal} yards to goal)`;
+    } else {
+        fieldHtml += `Ball at: ${defenseAbbrev} ${100 - ballPos} (${yardsToGoal} yards to goal)`;
+    }
+
+    fieldHtml += `</div>`;
+
+    fieldDisplay.innerHTML = fieldHtml;
+}
+
+function updateFieldPosition(play) {
+    // Update field position based on play description
+    const newPos = parseFieldPosition(play);
+    if (newPos !== null) {
+        currentFieldPosition = newPos;
+        renderField();
+    }
+
+    // Check for drive headers to update offense/defense
+    if (play.includes('---') && play.includes('starts at')) {
+        if (play.includes(userTeamName)) {
+            offenseAbbrev = getTeamAbbrev(userTeamName);
+            defenseAbbrev = getTeamAbbrev(opponentTeamName);
+        } else if (play.includes(opponentTeamName)) {
+            offenseAbbrev = getTeamAbbrev(opponentTeamName);
+            defenseAbbrev = getTeamAbbrev(userTeamName);
+        }
+        renderField();
+    }
 }
 </script>
 {% endblock %}
