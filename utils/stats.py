@@ -520,7 +520,9 @@ def get_top_players(team, games_played):
         qb = max(team.qb_starters, key=lambda p: p.pass_yards)
         if games_played > 0:
             comp_pct = round(qb.pass_completions / qb.pass_attempts * 100, 1) if qb.pass_attempts > 0 else 0
-            stats_line = f"{qb.pass_completions}/{qb.pass_attempts} ({comp_pct}%), {qb.pass_yards} yds, {qb.pass_td} TD, {qb.interceptions} INT"
+            pass_ypg = round(qb.pass_yards / games_played, 1)
+            rush_ypa = round(qb.rush_yards / qb.rush_attempts, 1) if qb.rush_attempts > 0 else 0
+            stats_line = f"Pass: {qb.pass_completions}/{qb.pass_attempts} ({comp_pct}%), {pass_ypg} ypg, {qb.pass_td} TD, {qb.interceptions} INT | Rush: {qb.rush_attempts} att, {qb.rush_yards} yds ({rush_ypa} avg), {qb.rush_td} TD"
         else:
             stats_line = "No stats yet"
         top_players.append({

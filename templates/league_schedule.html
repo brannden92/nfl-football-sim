@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}League Schedule - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4>League Schedule</h4>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="week-selector" onchange="changeWeek(this.value)">
+                            {% for w in range(1, 18) %}
+                            <option value="{{ w }}" {% if w == selected_week %}selected{% endif %}>Week {{ w }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <h5 class="mb-3">Week {{ selected_week }} Matchups</h5>
+
+                {% if week_games %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Matchup</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for game in week_games %}
+                            <tr {% if game.is_user_game %}class="table-primary"{% endif %}>
+                                <td>
+                                    <strong>{{ game.away_team }}</strong> @ <strong>{{ game.home_team }}</strong>
+                                    {% if game.is_user_game %}
+                                    <span class="badge bg-info">Your Game</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if game.is_played %}
+                                    <span class="badge bg-success">Final</span>
+                                    <br>
+                                    <strong>{{ game.away_score }} - {{ game.home_score }}</strong>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Not Played</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if game.is_played %}
+                                    <a href="#" class="btn btn-sm btn-outline-primary" onclick="alert('Box score coming soon!'); return false;">Box Score</a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    No games scheduled for this week yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function changeWeek(week) {
+    window.location.href = "{{ url_for('league_schedule') }}?week=" + week;
+}
+</script>
+{% endblock %}

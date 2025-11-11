@@ -326,14 +326,54 @@ def team_history():
 
 
 # LEAGUE Routes
-@app.route('/league/scores')
-def scores():
-    """League scores page"""
+@app.route('/league/schedule')
+def league_schedule():
+    """League schedule page"""
     franchise = get_franchise()
     if not franchise:
         return redirect(url_for('setup'))
-    # TODO: Implement week selector and scores
-    return render_template('scores.html', franchise=franchise)
+
+    # Get selected week from query parameter, default to current week
+    selected_week = request.args.get('week', franchise.current_week, type=int)
+    selected_week = max(1, min(17, selected_week))  # Clamp to 1-17
+
+    # Generate matchups for the selected week
+    week_games = []
+    user_team = get_user_team(franchise)
+
+    # Simple round-robin schedule: each team plays the next team in the list
+    # This is a simplified scheduler - in production you'd want a more sophisticated one
+    teams = franchise.teams
+    num_teams = len(teams)
+
+    # Pair up teams for this week
+    for i in range(0, num_teams, 2):
+        if i + 1 < num_teams:
+            # Determine home/away based on week
+            if (selected_week + i) % 2 == 0:
+                home_team = teams[i]
+                away_team = teams[(i + 1 + selected_week - 1) % num_teams]
+            else:
+                away_team = teams[i]
+                home_team = teams[(i + 1 + selected_week - 1) % num_teams]
+
+            # Check if this game has been played
+            is_played = selected_week < franchise.current_week
+            is_user_game = (home_team == user_team or away_team == user_team)
+
+            week_games.append({
+                'home_team': home_team.name,
+                'away_team': away_team.name,
+                'home_score': home_team.score if is_played else 0,
+                'away_score': away_team.score if is_played else 0,
+                'is_played': is_played,
+                'is_user_game': is_user_game
+            })
+
+    return render_template('league_schedule.html',
+                         franchise=franchise,
+                         selected_week=selected_week,
+                         week_games=week_games)
 
 
 @app.route('/league/stats')

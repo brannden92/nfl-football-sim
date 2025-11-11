@@ -271,6 +271,11 @@ let playIndex = 0;
 let plays = [];
 let intervalId = null;
 let gameData = null;
+let currentOffense = null;  // Track which team has the ball
+let userScore = 0;
+let opponentScore = 0;
+const userTeamName = "{{ user_team.name }}";
+const opponentTeamName = "{{ opponent.name }}";
 
 function simulateGame(fastSim) {
     const btn = document.getElementById('simulate-btn');
@@ -287,6 +292,13 @@ function simulateGame(fastSim) {
 
     // Hide preview
     preview.style.display = 'none';
+
+    // Reset scores
+    userScore = 0;
+    opponentScore = 0;
+    currentOffense = null;
+    document.getElementById('user-score').textContent = '0';
+    document.getElementById('opponent-score').textContent = '0';
 
     // Call API to simulate game
     fetch('/api/simulate-game', {
@@ -360,14 +372,40 @@ function displayNextPlay() {
     const play = plays[playIndex];
     const playDiv = document.getElementById('playbyplay');
 
-    // Check if this is a score update in the play text
-    const scoreMatch = play.match(/TOUCHDOWN!!!|GOOD!/);
+    // Check if this is a drive header to track which team has the ball
+    if (play.includes('---') && play.includes('starts at')) {
+        if (play.includes(userTeamName)) {
+            currentOffense = 'user';
+        } else if (play.includes(opponentTeamName)) {
+            currentOffense = 'opponent';
+        }
+    }
+
+    // Check for scoring plays
+    if (play.includes('TOUCHDOWN!!!')) {
+        if (currentOffense === 'user') {
+            userScore += 7;
+            document.getElementById('user-score').textContent = userScore;
+        } else if (currentOffense === 'opponent') {
+            opponentScore += 7;
+            document.getElementById('opponent-score').textContent = opponentScore;
+        }
+    } else if (play.includes('GOOD!') && play.includes('Field goal')) {
+        if (currentOffense === 'user') {
+            userScore += 3;
+            document.getElementById('user-score').textContent = userScore;
+        } else if (currentOffense === 'opponent') {
+            opponentScore += 3;
+            document.getElementById('opponent-score').textContent = opponentScore;
+        }
+    }
 
     // Add the play to the display
     const playElement = document.createElement('div');
     playElement.textContent = play;
 
-    if (scoreMatch) {
+    // Highlight scoring plays
+    if (play.includes('TOUCHDOWN!!!') || (play.includes('GOOD!') && play.includes('Field goal'))) {
         playElement.className = 'text-success fw-bold';
     }
 
