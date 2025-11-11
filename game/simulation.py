@@ -387,6 +387,7 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
     distance = 10
     plays = []
     total_time_used = 0  # Track cumulative time used in this drive
+    total_yards = 0  # Track yards gained on this drive
 
     off_abbrev = get_team_abbrev(offense.name)
     def_abbrev = get_team_abbrev(defense.name)
@@ -406,13 +407,19 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
 
                 if fg_made:
                     offense.score += 3
-                    plays.append(f"4th & {distance}: Field goal attempt from {distance_to_fg} yards - GOOD!")
-                    total_time_used += 6
-                    return plays, 20, total_time_used  # Touchback after FG
+                    play_time = 6
+                    total_time_used += play_time
+                    time_remaining -= play_time
+                    mins, secs = divmod(int(time_remaining), 60)
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Field goal attempt from {distance_to_fg} yards - GOOD! ({play_time}s)")
+                    return plays, 20, total_time_used, total_yards  # Touchback after FG
                 else:
-                    plays.append(f"4th & {distance}: Field goal attempt from {distance_to_fg} yards - MISSED!")
-                    total_time_used += 5
-                    return plays, field_pos, total_time_used  # Defense takes over
+                    play_time = 5
+                    total_time_used += play_time
+                    time_remaining -= play_time
+                    mins, secs = divmod(int(time_remaining), 60)
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Field goal attempt from {distance_to_fg} yards - MISSED! ({play_time}s)")
+                    return plays, field_pos, total_time_used, total_yards  # Defense takes over
 
             # Go for it on short yardage near goal line
             elif distance <= 2 and yards_to_go <= 5:
@@ -423,37 +430,56 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
                 punter = offense.p_starters[0] if offense.p_starters else None
                 punt_yards, is_touchback, shanked = attempt_punt(punter, yards_to_go)
 
+                play_time = 8
+                total_time_used += play_time
+                time_remaining -= play_time
+                mins, secs = divmod(int(time_remaining), 60)
+
                 if shanked:
                     new_field_pos = min(100, field_pos + punt_yards - 8)  # Return
-                    plays.append(f"4th & {distance}: SHANKED PUNT! {punt_yards} yards, returned to {get_field_position_str(off_abbrev, new_field_pos)}")
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: SHANKED PUNT! {punt_yards} yards, returned to {get_field_position_str(off_abbrev, new_field_pos)} ({play_time}s)")
                 elif is_touchback:
                     new_field_pos = 20
-                    plays.append(f"4th & {distance}: Punt - touchback")
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Punt - touchback ({play_time}s)")
                 else:
                     new_field_pos = field_pos + punt_yards - random.randint(0, 12)  # Return
                     new_field_pos = max(1, min(99, new_field_pos))
-                    plays.append(f"4th & {distance}: Punt {punt_yards} yards to {get_field_position_str(off_abbrev, new_field_pos)}")
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Punt {punt_yards} yards to {get_field_position_str(off_abbrev, new_field_pos)} ({play_time}s)")
 
-                total_time_used += 8
-                return plays, new_field_pos, total_time_used
+                return plays, new_field_pos, total_time_used, total_yards
 
         # Simulate the play
-        yards_gained, time_elapsed, clock_stops, is_turnover, play_description = simulate_play(
+        yards_gained, play_time, clock_stops, is_turnover, play_description = simulate_play(
             offense, defense, down, distance, yards_to_go, quarter, time_remaining, score_diff, field_pos
         )
 
+        # Calculate total time for this play (play time + time to next snap if clock runs)
+        if clock_stops:
+            # Clock stopped - only count play time
+            time_for_play = play_time
+        else:
+            # Clock runs - add time between plays (huddle, lineup, snap)
+            time_between_plays = random.randint(30, 40)
+            time_for_play = play_time + time_between_plays
+
         # Update time
-        total_time_used += time_elapsed
-        time_remaining -= time_elapsed
+        total_time_used += time_for_play
+        time_remaining -= time_for_play
         if time_remaining < 0:
             time_remaining = 0
 
-        # Add play description
-        plays.append(f"{get_down_distance_str(down, distance)} at {get_field_position_str(def_abbrev, field_pos)}: {play_description}")
+        # Format time display
+        mins, secs = divmod(int(time_remaining), 60)
+
+        # Add play description with time info
+        plays.append(f"Q{quarter} {mins}:{secs:02d} - {get_down_distance_str(down, distance)} at {get_field_position_str(def_abbrev, field_pos)}: {play_description} ({time_for_play}s)")
+
+        # Track yards
+        total_yards += yards_gained
 
         # Handle turnovers
         if is_turnover:
-            return plays, field_pos + yards_gained, total_time_used
+            return plays, field_pos + yards_gained, total_time_used, total_yards
 
         # Update field position
         field_pos += yards_gained
@@ -462,7 +488,7 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
 
         # Check for touchdown
         if yards_to_go <= 0:
-            return plays, 20, total_time_used  # Touchback after TD
+            return plays, 20, total_time_used, total_yards  # Touchback after TD
 
         # Update downs
         if distance <= 0:
@@ -473,10 +499,10 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
 
         # Safety check
         if down > 4:
-            return plays, field_pos, total_time_used
+            return plays, field_pos, total_time_used, total_yards
 
     # Time ran out during drive
-    return plays, field_pos, total_time_used
+    return plays, field_pos, total_time_used, total_yards
 
 
 def _snapshot_player_stats(players):
@@ -512,6 +538,14 @@ def simulate_game(team1, team2, user_team=None):
 
     all_plays = []
 
+    # Track game stats
+    team1_drives = 0
+    team2_drives = 0
+    team1_plays = 0
+    team2_plays = 0
+    team1_total_yards = 0
+    team2_total_yards = 0
+
     # Game clock: 4 quarters x 15 minutes = 3600 seconds
     quarter = 1
     time_in_quarter = 900  # 15 minutes in seconds
@@ -525,15 +559,28 @@ def simulate_game(team1, team2, user_team=None):
             # Determine offense and defense
             if possession == team1:
                 offense, defense = team1, team2
+                team1_drives += 1
             else:
                 offense, defense = team2, team1
+                team2_drives += 1
 
             score_diff = offense.score - defense.score
 
             # Simulate drive
-            drive_plays, end_field_pos, time_used = simulate_drive(
+            drive_plays, end_field_pos, time_used, yards_gained = simulate_drive(
                 offense, defense, field_pos, quarter, time_in_quarter, score_diff
             )
+
+            # Count plays (subtract 1 for the drive header line)
+            num_plays = len(drive_plays) - 1
+
+            # Track stats
+            if possession == team1:
+                team1_plays += num_plays
+                team1_total_yards += yards_gained
+            else:
+                team2_plays += num_plays
+                team2_total_yards += yards_gained
 
             # Add plays to game log
             all_plays.extend(drive_plays)
@@ -583,6 +630,20 @@ def simulate_game(team1, team2, user_team=None):
     else:
         team2.wins += 1
         team1.losses += 1
+
+    # Add game summary to play-by-play
+    all_plays.append("\n" + "=" * 70)
+    all_plays.append("GAME SUMMARY")
+    all_plays.append("=" * 70)
+    all_plays.append(f"\n{team1.name}: {team1.score}")
+    all_plays.append(f"  Drives: {team1_drives}")
+    all_plays.append(f"  Plays: {team1_plays}")
+    all_plays.append(f"  Total Yards: {team1_total_yards}")
+    all_plays.append(f"\n{team2.name}: {team2.score}")
+    all_plays.append(f"  Drives: {team2_drives}")
+    all_plays.append(f"  Plays: {team2_plays}")
+    all_plays.append(f"  Total Yards: {team2_total_yards}")
+    all_plays.append(f"\nTotal Plays: {team1_plays + team2_plays}")
 
     # Store stats and play-by-play
     _compute_delta_and_store(team1, before_team1, team1.players)
