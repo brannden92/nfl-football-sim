@@ -607,3 +607,78 @@ def get_top_players(team, games_played):
         })
 
     return top_players
+
+
+def calculate_stat_rankings(team, all_teams, games_played):
+    """Calculate team's stat rankings across the league"""
+    if games_played == 0:
+        return None
+
+    # Calculate all team stats
+    team_stats_list = []
+    for t in all_teams:
+        stats = {}
+        stats['team'] = t
+        stats['ppg'] = t.points_for / games_played if games_played > 0 else 0
+        stats['papg'] = t.points_against / games_played if games_played > 0 else 0
+
+        # Passing
+        stats['pass_yards'] = sum(p.pass_yards for p in t.qb_starters)
+        stats['pass_ypg'] = stats['pass_yards'] / games_played if games_played > 0 else 0
+        stats['pass_attempts'] = sum(p.pass_attempts for p in t.qb_starters)
+        stats['pass_completions'] = sum(p.pass_completions for p in t.qb_starters)
+        stats['completion_pct'] = (stats['pass_completions'] / stats['pass_attempts'] * 100) if stats['pass_attempts'] > 0 else 0
+        stats['yards_per_attempt'] = (stats['pass_yards'] / stats['pass_attempts']) if stats['pass_attempts'] > 0 else 0
+        stats['pass_tds'] = sum(p.pass_td for p in t.qb_starters)
+        stats['interceptions'] = sum(p.interceptions for p in t.qb_starters)
+
+        # Rushing
+        rushers = t.rb_starters + t.qb_starters
+        stats['rush_yards'] = sum(p.rush_yards for p in rushers)
+        stats['rush_ypg'] = stats['rush_yards'] / games_played if games_played > 0 else 0
+        stats['rush_attempts'] = sum(p.rush_attempts for p in rushers)
+        stats['rush_ypa'] = (stats['rush_yards'] / stats['rush_attempts']) if stats['rush_attempts'] > 0 else 0
+        stats['rush_tds'] = sum(p.rush_td for p in rushers)
+        stats['fumbles'] = sum(p.fumbles for p in rushers)
+
+        # Defense
+        stats['sacks'] = sum(p.sacks for p in t.defense_starters)
+        stats['def_ints'] = sum(p.interceptions_def for p in t.defense_starters)
+        stats['forced_fumbles'] = sum(p.forced_fumbles for p in t.defense_starters)
+
+        # Turnovers (combined)
+        stats['turnovers'] = stats['interceptions'] + stats['fumbles']
+
+        team_stats_list.append(stats)
+
+    # Find user team stats
+    user_stats = next((s for s in team_stats_list if s['team'] == team), None)
+    if not user_stats:
+        return None
+
+    # Calculate rankings
+    rankings = {}
+
+    # Offense rankings (higher is better)
+    rankings['ppg'] = sorted(team_stats_list, key=lambda x: x['ppg'], reverse=True).index(user_stats) + 1
+    rankings['pass_ypg'] = sorted(team_stats_list, key=lambda x: x['pass_ypg'], reverse=True).index(user_stats) + 1
+    rankings['completion_pct'] = sorted(team_stats_list, key=lambda x: x['completion_pct'], reverse=True).index(user_stats) + 1
+    rankings['yards_per_attempt'] = sorted(team_stats_list, key=lambda x: x['yards_per_attempt'], reverse=True).index(user_stats) + 1
+    rankings['pass_tds'] = sorted(team_stats_list, key=lambda x: x['pass_tds'], reverse=True).index(user_stats) + 1
+    rankings['rush_ypg'] = sorted(team_stats_list, key=lambda x: x['rush_ypg'], reverse=True).index(user_stats) + 1
+    rankings['rush_ypa'] = sorted(team_stats_list, key=lambda x: x['rush_ypa'], reverse=True).index(user_stats) + 1
+    rankings['rush_tds'] = sorted(team_stats_list, key=lambda x: x['rush_tds'], reverse=True).index(user_stats) + 1
+
+    # Defense rankings (lower is better for points/yards allowed, higher is better for turnovers)
+    rankings['papg'] = sorted(team_stats_list, key=lambda x: x['papg']).index(user_stats) + 1
+    rankings['sacks'] = sorted(team_stats_list, key=lambda x: x['sacks'], reverse=True).index(user_stats) + 1
+    rankings['def_ints'] = sorted(team_stats_list, key=lambda x: x['def_ints'], reverse=True).index(user_stats) + 1
+    rankings['forced_fumbles'] = sorted(team_stats_list, key=lambda x: x['forced_fumbles'], reverse=True).index(user_stats) + 1
+
+    # Turnovers (lower is better for offense)
+    rankings['turnovers'] = sorted(team_stats_list, key=lambda x: x['turnovers']).index(user_stats) + 1
+
+    # Store actual values too
+    rankings['values'] = user_stats
+
+    return rankings

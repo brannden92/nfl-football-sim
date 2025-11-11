@@ -9,8 +9,8 @@ from game import simulate_game, run_playoffs
 from utils import (
     create_new_league, save_franchise, load_franchise,
     print_team_summary, calculate_team_ratings, calculate_team_stats,
-    get_top_players, view_standings, generate_draft_prospects,
-    run_scouting, run_draft
+    get_top_players, calculate_stat_rankings, view_standings,
+    generate_draft_prospects, run_scouting, run_draft
 )
 from config import SEASON_GAMES
 
@@ -53,26 +53,53 @@ def index():
     # Calculate team ratings
     games_played = franchise.current_week - 1
     ratings = calculate_team_ratings(user_team, games_played)
+    user_stats = calculate_team_stats(user_team, games_played)
 
-    # Get division standings
+    # Get division standings with games back
     div_teams = [t for t in franchise.teams if t.league == user_team.league and t.division == user_team.division]
     div_teams.sort(key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
 
-    # Get next opponent
+    # Calculate games back for each team
+    if div_teams:
+        leader_wins = div_teams[0].wins
+        leader_losses = div_teams[0].losses
+        for team in div_teams:
+            gb = ((leader_wins - team.wins) + (team.losses - leader_losses)) / 2.0
+            team.games_back = gb if gb > 0 else 0
+
+    # Get next opponent with full scouting info
     next_opponent = None
+    next_opponent_ratings = None
+    next_opponent_stats = None
     if franchise.current_week <= SEASON_GAMES:
         # Simple scheduling - would need proper implementation
         available = [t for t in franchise.teams if t != user_team and t.league == user_team.league]
         if available:
-            next_opponent = available[franchise.current_week % len(available)]
+            next_opponent = available[(franchise.current_week - 1) % len(available)]
+            next_opponent_ratings = calculate_team_ratings(next_opponent, games_played)
+            next_opponent_stats = calculate_team_stats(next_opponent, games_played)
+
+    # Calculate team stat rankings across entire league
+    all_teams = franchise.teams
+    stat_rankings = calculate_stat_rankings(user_team, all_teams, games_played)
+
+    # Get last game summary
+    last_game_summary = None
+    if games_played > 0 and hasattr(user_team, 'last_game_stats'):
+        last_game_summary = user_team.last_game_stats
 
     return render_template('index.html',
                          franchise=franchise,
                          user_team=user_team,
                          ratings=ratings,
+                         user_stats=user_stats,
                          div_teams=div_teams,
                          next_opponent=next_opponent,
-                         games_played=games_played)
+                         next_opponent_ratings=next_opponent_ratings,
+                         next_opponent_stats=next_opponent_stats,
+                         games_played=games_played,
+                         stat_rankings=stat_rankings,
+                         last_game_summary=last_game_summary)
 
 
 @app.route('/setup', methods=['GET', 'POST'])
@@ -227,6 +254,15 @@ def standings():
         for division in ['North', 'South', 'East', 'West']:
             teams = [t for t in franchise.teams if t.league == league and t.division == division]
             teams.sort(key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+
+            # Calculate games back for each team
+            if teams:
+                leader_wins = teams[0].wins
+                leader_losses = teams[0].losses
+                for team in teams:
+                    gb = ((leader_wins - team.wins) + (team.losses - leader_losses)) / 2.0
+                    team.games_back = gb if gb > 0 else 0
+
             standings_data[league][division] = teams
 
     return render_template('standings.html',

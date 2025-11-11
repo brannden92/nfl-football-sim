@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - NFL Football Sim{% endblock %}
+{% block title %}Home - NFL Football Sim{% endblock %}
 
 {% block content %}
 <div class="row">
-    <!-- Left Column - Team Info -->
+    <!-- Left Column - Team Info & Game Info -->
     <div class="col-md-8">
+        <!-- Team Summary Card -->
         <div class="card mb-4">
             <div class="card-header bg-success text-white">
                 <h4>{{ user_team.name }}</h4>
@@ -62,14 +63,160 @@
             </div>
             <div class="card-body">
                 <h4>vs {{ next_opponent.name }}</h4>
-                <p>Record: {{ next_opponent.wins }}-{{ next_opponent.losses }}</p>
-                <a href="{{ url_for('simulate') }}" class="btn btn-primary btn-lg">Simulate Game</a>
+                <p><strong>Record:</strong> {{ next_opponent.wins }}-{{ next_opponent.losses }}</p>
+
+                <!-- Opponent Ratings -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6>Opponent Ratings</h6>
+                        <small>Pass Off: {{ next_opponent_ratings.pass_off }}/99</small><br>
+                        <small>Rush Off: {{ next_opponent_ratings.rush_off }}/99</small><br>
+                        <small>Pass Def: {{ next_opponent_ratings.pass_def }}/99</small><br>
+                        <small>Rush Def: {{ next_opponent_ratings.rush_def }}/99</small>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Opponent Stats</h6>
+                        <small>PPG: {{ next_opponent_stats.ppg }}</small><br>
+                        <small>Pass Yds/G: {{ next_opponent_stats.pass_ypg }}</small><br>
+                        <small>Rush Yds/G: {{ next_opponent_stats.rush_ypg }}</small><br>
+                        <small>PA/G: {{ next_opponent_stats.papg }}</small>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <a href="{{ url_for('simulate') }}" class="btn btn-primary btn-lg">Simulate Game</a>
+                </div>
             </div>
         </div>
         {% else %}
         <div class="alert alert-info">
             <h5>Season Complete!</h5>
             <p>The regular season has ended. Proceed to playoffs!</p>
+        </div>
+        {% endif %}
+
+        <!-- Last Game Summary -->
+        {% if last_game_summary %}
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5>Last Game - Week {{ franchise.current_week - 1 }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <h5>{{ user_team.name }}</h5>
+                        <h2>{{ last_game_summary.get('user_final_score', 0) }}</h2>
+                    </div>
+                    <div class="col-6">
+                        <h5>{{ last_game_summary.get('opponent_name', 'Opponent') }}</h5>
+                        <h2>{{ last_game_summary.get('opp_final_score', 0) }}</h2>
+                    </div>
+                </div>
+
+                <!-- Quarter by Quarter Scoring -->
+                <h6 class="text-center">Score by Quarter</h6>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>Q1</th>
+                            <th>Q2</th>
+                            <th>Q3</th>
+                            <th>Q4</th>
+                            <th>Final</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ user_team.name }}</td>
+                            <td>{{ last_game_summary.get('user_q1', 0) }}</td>
+                            <td>{{ last_game_summary.get('user_q2', 0) }}</td>
+                            <td>{{ last_game_summary.get('user_q3', 0) }}</td>
+                            <td>{{ last_game_summary.get('user_q4', 0) }}</td>
+                            <td><strong>{{ last_game_summary.get('user_final_score', 0) }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>{{ last_game_summary.get('opponent_name', 'Opponent') }}</td>
+                            <td>{{ last_game_summary.get('opp_q1', 0) }}</td>
+                            <td>{{ last_game_summary.get('opp_q2', 0) }}</td>
+                            <td>{{ last_game_summary.get('opp_q3', 0) }}</td>
+                            <td>{{ last_game_summary.get('opp_q4', 0) }}</td>
+                            <td><strong>{{ last_game_summary.get('opp_final_score', 0) }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Team Stats -->
+                <h6 class="mt-3">Team Statistics</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr><td>Pass Yards</td><td class="text-end">{{ last_game_summary.get('user_pass_yds', 0) }}</td></tr>
+                                <tr><td>Pass TD/INT</td><td class="text-end">{{ last_game_summary.get('user_pass_td', 0) }}/{{ last_game_summary.get('user_int', 0) }}</td></tr>
+                                <tr><td>Rush Yards</td><td class="text-end">{{ last_game_summary.get('user_rush_yds', 0) }}</td></tr>
+                                <tr><td>Rush TD/Fumbles</td><td class="text-end">{{ last_game_summary.get('user_rush_td', 0) }}/{{ last_game_summary.get('user_fum', 0) }}</td></tr>
+                                <tr><td>FG Made/Att</td><td class="text-end">{{ last_game_summary.get('user_fg_made', 0) }}/{{ last_game_summary.get('user_fg_att', 0) }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr><td>Pass Yards</td><td class="text-end">{{ last_game_summary.get('opp_pass_yds', 0) }}</td></tr>
+                                <tr><td>Pass TD/INT</td><td class="text-end">{{ last_game_summary.get('opp_pass_td', 0) }}/{{ last_game_summary.get('opp_int', 0) }}</td></tr>
+                                <tr><td>Rush Yards</td><td class="text-end">{{ last_game_summary.get('opp_rush_yds', 0) }}</td></tr>
+                                <tr><td>Rush TD/Fumbles</td><td class="text-end">{{ last_game_summary.get('opp_rush_td', 0) }}/{{ last_game_summary.get('opp_fum', 0) }}</td></tr>
+                                <tr><td>FG Made/Att</td><td class="text-end">{{ last_game_summary.get('opp_fg_made', 0) }}/{{ last_game_summary.get('opp_fg_att', 0) }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Team Stats Rankings -->
+        {% if stat_rankings %}
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5>Team Stats Rankings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6 class="text-primary">OFFENSE</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr><td>Points For</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.ppg) }} <span class="badge bg-secondary">#{{ stat_rankings.ppg }}</span></td></tr>
+                                <tr><td>Pass Yds/Game</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.pass_ypg) }} <span class="badge bg-secondary">#{{ stat_rankings.pass_ypg }}</span></td></tr>
+                                <tr><td>Completion %</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.completion_pct) }}% <span class="badge bg-secondary">#{{ stat_rankings.completion_pct }}</span></td></tr>
+                                <tr><td>Yds/Pass Att</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.yards_per_attempt) }} <span class="badge bg-secondary">#{{ stat_rankings.yards_per_attempt }}</span></td></tr>
+                                <tr><td>Pass TDs</td><td class="text-end">{{ stat_rankings.values.pass_tds }} <span class="badge bg-secondary">#{{ stat_rankings.pass_tds }}</span></td></tr>
+                                <tr><td>Rush Yds/Game</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.rush_ypg) }} <span class="badge bg-secondary">#{{ stat_rankings.rush_ypg }}</span></td></tr>
+                                <tr><td>Rush Yds/Att</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.rush_ypa) }} <span class="badge bg-secondary">#{{ stat_rankings.rush_ypa }}</span></td></tr>
+                                <tr><td>Rush TDs</td><td class="text-end">{{ stat_rankings.values.rush_tds }} <span class="badge bg-secondary">#{{ stat_rankings.rush_tds }}</span></td></tr>
+                                <tr><td>Turnovers</td><td class="text-end">{{ stat_rankings.values.turnovers }} <span class="badge bg-secondary">#{{ stat_rankings.turnovers }}</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-danger">DEFENSE</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr><td>Points Allowed</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.papg) }} <span class="badge bg-secondary">#{{ stat_rankings.papg }}</span></td></tr>
+                                <tr><td>Sacks</td><td class="text-end">{{ stat_rankings.values.sacks }} <span class="badge bg-secondary">#{{ stat_rankings.sacks }}</span></td></tr>
+                                <tr><td>Interceptions</td><td class="text-end">{{ stat_rankings.values.def_ints }} <span class="badge bg-secondary">#{{ stat_rankings.def_ints }}</span></td></tr>
+                                <tr><td>Forced Fumbles</td><td class="text-end">{{ stat_rankings.values.forced_fumbles }} <span class="badge bg-secondary">#{{ stat_rankings.forced_fumbles }}</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-warning">SPECIAL TEAMS</h6>
+                        <p class="text-muted"><small>Stats tracking coming soon</small></p>
+                    </div>
+                </div>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -87,6 +234,7 @@
                             <th>Team</th>
                             <th>W</th>
                             <th>L</th>
+                            <th>GB</th>
                             <th>PF</th>
                             <th>PA</th>
                         </tr>
@@ -101,6 +249,7 @@
                             </td>
                             <td>{{ team.wins }}</td>
                             <td>{{ team.losses }}</td>
+                            <td>{% if team.games_back == 0 %}-{% else %}{{ "%.1f"|format(team.games_back) }}{% endif %}</td>
                             <td>{{ team.points_for }}</td>
                             <td>{{ team.points_against }}</td>
                         </tr>

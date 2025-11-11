@@ -23,6 +23,7 @@
                                     <th>Team</th>
                                     <th>W</th>
                                     <th>L</th>
+                                    <th>GB</th>
                                     <th>PF</th>
                                     <th>PA</th>
                                     <th>Diff</th>
@@ -38,6 +39,7 @@
                                     </td>
                                     <td>{{ team.wins }}</td>
                                     <td>{{ team.losses }}</td>
+                                    <td>{% if team.games_back == 0 %}-{% else %}{{ "%.1f"|format(team.games_back) }}{% endif %}</td>
                                     <td>{{ team.points_for }}</td>
                                     <td>{{ team.points_against }}</td>
                                     <td class="{% if team.points_for - team.points_against > 0 %}text-success{% else %}text-danger{% endif %}">
@@ -69,6 +71,7 @@
                                     <th>Team</th>
                                     <th>W</th>
                                     <th>L</th>
+                                    <th>GB</th>
                                     <th>PF</th>
                                     <th>PA</th>
                                     <th>Diff</th>
@@ -84,6 +87,7 @@
                                     </td>
                                     <td>{{ team.wins }}</td>
                                     <td>{{ team.losses }}</td>
+                                    <td>{% if team.games_back == 0 %}-{% else %}{{ "%.1f"|format(team.games_back) }}{% endif %}</td>
                                     <td>{{ team.points_for }}</td>
                                     <td>{{ team.points_against }}</td>
                                     <td class="{% if team.points_for - team.points_against > 0 %}text-success{% else %}text-danger{% endif %}">
