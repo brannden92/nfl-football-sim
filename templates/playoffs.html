@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+
+{% block title %}Playoffs - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">NFL Playoffs</h2>
+
+        {% if not playoffs_started %}
+        <div class="alert alert-info">
+            <h5>{{ message }}</h5>
+        </div>
+        {% else %}
+
+        <!-- Playoff Status Banner -->
+        <div class="alert {% if season_complete %}alert-success{% else %}alert-primary{% endif %} mb-4">
+            {% if season_complete %}
+            <h5>Season Complete!</h5>
+            <p>The playoffs have concluded. Check back next season!</p>
+            {% elif playoff_state == 'wildcard' %}
+            <h5>Wild Card Round</h5>
+            {% elif playoff_state == 'divisional' %}
+            <h5>Divisional Round</h5>
+            {% elif playoff_state == 'conference' %}
+            <h5>Conference Championships</h5>
+            {% elif playoff_state == 'superbowl' %}
+            <h5>Super Bowl</h5>
+            {% endif %}
+        </div>
+
+        <!-- AFC Bracket -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4>AFC Playoff Bracket</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Wild Card Round -->
+                    <div class="col-md-3">
+                        <h6 class="text-center mb-3">Wild Card</h6>
+                        {% if bracket.wildcard %}
+                            {% for matchup in bracket.wildcard.afc %}
+                            <div class="card mb-3">
+                                <div class="card-body p-2">
+                                    {% set team1 = get_team_by_seed('AFC', matchup.seed1) %}
+                                    {% set team2 = get_team_by_seed('AFC', matchup.seed2) %}
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="{% if team1 and not team1.eliminated %}fw-bold{% endif %}">
+                                            {{ matchup.seed1 }}. {{ team1.name if team1 else 'TBD' }}
+                                        </span>
+                                        {% if team1 and team1.playoff_wins > 0 %}
+                                        <span class="badge bg-success">W</span>
+                                        {% elif team1 and team1.eliminated %}
+                                        <span class="badge bg-danger">L</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="{% if team2 and not team2.eliminated %}fw-bold{% endif %}">
+                                            {{ matchup.seed2 }}. {{ team2.name if team2 else 'TBD' }}
+                                        </span>
+                                        {% if team2 and team2.playoff_wins > 0 %}
+                                        <span class="badge bg-success">W</span>
+                                        {% elif team2 and team2.eliminated %}
+                                        <span class="badge bg-danger">L</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Divisional Round -->
+                    <div class="col-md-3">
+                        <h6 class="text-center mb-3">Divisional</h6>
+                        <!-- Bye Week Team -->
+                        {% set seed1_team = get_team_by_seed('AFC', 1) %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if seed1_team and not seed1_team.eliminated %}fw-bold{% endif %}">
+                                        1. {{ seed1_team.name if seed1_team else 'TBD' }} (bye)
+                                    </span>
+                                    {% if seed1_team and seed1_team.playoff_wins > 0 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif seed1_team and seed1_team.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">vs</small>
+                                {% if bracket.divisional and bracket.divisional.afc %}
+                                    {% set div_matchup = bracket.divisional.afc[0] %}
+                                    {% set opponent = get_team_by_seed('AFC', div_matchup.seed2) %}
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="{% if opponent and not opponent.eliminated %}fw-bold{% endif %}">
+                                            {{ div_matchup.seed2 }}. {{ opponent.name if opponent else 'TBD' }}
+                                        </span>
+                                        {% if opponent and opponent.playoff_wins >= 2 %}
+                                        <span class="badge bg-success">W</span>
+                                        {% elif opponent and opponent.eliminated %}
+                                        <span class="badge bg-danger">L</span>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                <div class="text-muted">TBD</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Second Divisional Game -->
+                        {% if bracket.divisional and bracket.divisional.afc and bracket.divisional.afc|length > 1 %}
+                        {% set div_matchup2 = bracket.divisional.afc[1] %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2">
+                                {% set team1 = get_team_by_seed('AFC', div_matchup2.seed1) %}
+                                {% set team2 = get_team_by_seed('AFC', div_matchup2.seed2) %}
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="{% if team1 and not team1.eliminated %}fw-bold{% endif %}">
+                                        {{ div_matchup2.seed1 }}. {{ team1.name if team1 else 'TBD' }}
+                                    </span>
+                                    {% if team1 and team1.playoff_wins >= 2 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif team1 and team1.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if team2 and not team2.eliminated %}fw-bold{% endif %}">
+                                        {{ div_matchup2.seed2 }}. {{ team2.name if team2 else 'TBD' }}
+                                    </span>
+                                    {% if team2 and team2.playoff_wins >= 2 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif team2 and team2.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Conference Championship -->
+                    <div class="col-md-3">
+                        <h6 class="text-center mb-3">AFC Championship</h6>
+                        {% if bracket.conference and bracket.conference.afc %}
+                        {% set conf_matchup = bracket.conference.afc[0] %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2">
+                                {% set team1 = get_team_by_seed('AFC', conf_matchup.seed1) %}
+                                {% set team2 = get_team_by_seed('AFC', conf_matchup.seed2) %}
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="{% if team1 and not team1.eliminated %}fw-bold{% endif %}">
+                                        {{ conf_matchup.seed1 }}. {{ team1.name if team1 else 'TBD' }}
+                                    </span>
+                                    {% if team1 and team1.playoff_wins >= 3 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif team1 and team1.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if team2 and not team2.eliminated %}fw-bold{% endif %}">
+                                        {{ conf_matchup.seed2 }}. {{ team2.name if team2 else 'TBD' }}
+                                    </span>
+                                    {% if team2 and team2.playoff_wins >= 3 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif team2 and team2.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2 text-muted">
+                                TBD
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Super Bowl (AFC Side) -->
+                    <div class="col-md-3">
+                        <h6 class="text-center mb-3">Super Bowl</h6>
+                        {% if bracket.superbowl and bracket.superbowl|length > 0 %}
+                        {% set sb = bracket.superbowl[0] %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2">
+                                {% if sb.conf1 == 'AFC' %}
+                                {% set afc_team = get_team_by_seed('AFC', sb.seed1) %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if afc_team and not afc_team.eliminated %}fw-bold{% endif %}">
+                                        {{ sb.seed1 }}. {{ afc_team.name if afc_team else 'TBD' }}
+                                    </span>
+                                    {% if afc_team and afc_team.playoff_wins >= 4 %}
+                                    <span class="badge bg-warning text-dark">CHAMP</span>
+                                    {% elif afc_team and afc_team.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                {% set afc_team = get_team_by_seed('AFC', sb.seed2) %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if afc_team and not afc_team.eliminated %}fw-bold{% endif %}">
+                                        {{ sb.seed2 }}. {{ afc_team.name if afc_team else 'TBD' }}
+                                    </span>
+                                    {% if afc_team and afc_team.playoff_wins >= 4 %}
+                                    <span class="badge bg-warning text-dark">CHAMP</span>
+                                    {% elif afc_team and afc_team.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2 text-muted">
+                                TBD
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NFC Bracket -->
+        <div class="card mb-4">
+            <div class="card-header bg-danger text-white">
+                <h4>NFC Playoff Bracket</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Wild Card Round -->
+                    <div class="col-md-3">
+                        <h6 class="text-center mb-3">Wild Card</h6>
+                        {% if bracket.wildcard %}
+                            {% for matchup in bracket.wildcard.nfc %}
+                            <div class="card mb-3">
+                                <div class="card-body p-2">
+                                    {% set team1 = get_team_by_seed('NFC', matchup.seed1) %}
+                                    {% set team2 = get_team_by_seed('NFC', matchup.seed2) %}
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="{% if team1 and not team1.eliminated %}fw-bold{% endif %}">
+                                            {{ matchup.seed1 }}. {{ team1.name if team1 else 'TBD' }}
+                                        </span>
+                                        {% if team1 and team1.playoff_wins > 0 %}
+                                        <span class="badge bg-success">W</span>
+                                        {% elif team1 and team1.eliminated %}
+                                        <span class="badge bg-danger">L</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="{% if team2 and not team2.eliminated %}fw-bold{% endif %}">
+                                            {{ matchup.seed2 }}. {{ team2.name if team2 else 'TBD' }}
+                                        </span>
+                                        {% if team2 and team2.playoff_wins > 0 %}
+                                        <span class="badge bg-success">W</span>
+                                        {% elif team2 and team2.eliminated %}
+                                        <span class="badge bg-danger">L</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Divisional Round -->
+                    <div class="col-md-3">
+                        <h6 class="text-center mb-3">Divisional</h6>
+                        <!-- Bye Week Team -->
+                        {% set seed1_team = get_team_by_seed('NFC', 1) %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if seed1_team and not seed1_team.eliminated %}fw-bold{% endif %}">
+                                        1. {{ seed1_team.name if seed1_team else 'TBD' }} (bye)
+                                    </span>
+                                    {% if seed1_team and seed1_team.playoff_wins > 0 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif seed1_team and seed1_team.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">vs</small>
+                                {% if bracket.divisional and bracket.divisional.nfc %}
+                                    {% set div_matchup = bracket.divisional.nfc[0] %}
+                                    {% set opponent = get_team_by_seed('NFC', div_matchup.seed2) %}
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="{% if opponent and not opponent.eliminated %}fw-bold{% endif %}">
+                                            {{ div_matchup.seed2 }}. {{ opponent.name if opponent else 'TBD' }}
+                                        </span>
+                                        {% if opponent and opponent.playoff_wins >= 2 %}
+                                        <span class="badge bg-success">W</span>
+                                        {% elif opponent and opponent.eliminated %}
+                                        <span class="badge bg-danger">L</span>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                <div class="text-muted">TBD</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Second Divisional Game -->
+                        {% if bracket.divisional and bracket.divisional.nfc and bracket.divisional.nfc|length > 1 %}
+                        {% set div_matchup2 = bracket.divisional.nfc[1] %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2">
+                                {% set team1 = get_team_by_seed('NFC', div_matchup2.seed1) %}
+                                {% set team2 = get_team_by_seed('NFC', div_matchup2.seed2) %}
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="{% if team1 and not team1.eliminated %}fw-bold{% endif %}">
+                                        {{ div_matchup2.seed1 }}. {{ team1.name if team1 else 'TBD' }}
+                                    </span>
+                                    {% if team1 and team1.playoff_wins >= 2 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif team1 and team1.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if team2 and not team2.eliminated %}fw-bold{% endif %}">
+                                        {{ div_matchup2.seed2 }}. {{ team2.name if team2 else 'TBD' }}
+                                    </span>
+                                    {% if team2 and team2.playoff_wins >= 2 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif team2 and team2.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Conference Championship -->
+                    <div class="col-md-3">
+                        <h6 class="text-center mb-3">NFC Championship</h6>
+                        {% if bracket.conference and bracket.conference.nfc %}
+                        {% set conf_matchup = bracket.conference.nfc[0] %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2">
+                                {% set team1 = get_team_by_seed('NFC', conf_matchup.seed1) %}
+                                {% set team2 = get_team_by_seed('NFC', conf_matchup.seed2) %}
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="{% if team1 and not team1.eliminated %}fw-bold{% endif %}">
+                                        {{ conf_matchup.seed1 }}. {{ team1.name if team1 else 'TBD' }}
+                                    </span>
+                                    {% if team1 and team1.playoff_wins >= 3 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif team1 and team1.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if team2 and not team2.eliminated %}fw-bold{% endif %}">
+                                        {{ conf_matchup.seed2 }}. {{ team2.name if team2 else 'TBD' }}
+                                    </span>
+                                    {% if team2 and team2.playoff_wins >= 3 %}
+                                    <span class="badge bg-success">W</span>
+                                    {% elif team2 and team2.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2 text-muted">
+                                TBD
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Super Bowl (NFC Side) -->
+                    <div class="col-md-3">
+                        <h6 class="text-center mb-3">Super Bowl</h6>
+                        {% if bracket.superbowl and bracket.superbowl|length > 0 %}
+                        {% set sb = bracket.superbowl[0] %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2">
+                                {% if sb.conf2 == 'NFC' %}
+                                {% set nfc_team = get_team_by_seed('NFC', sb.seed2) %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if nfc_team and not nfc_team.eliminated %}fw-bold{% endif %}">
+                                        {{ sb.seed2 }}. {{ nfc_team.name if nfc_team else 'TBD' }}
+                                    </span>
+                                    {% if nfc_team and nfc_team.playoff_wins >= 4 %}
+                                    <span class="badge bg-warning text-dark">CHAMP</span>
+                                    {% elif nfc_team and nfc_team.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                {% set nfc_team = get_team_by_seed('NFC', sb.seed1) %}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="{% if nfc_team and not nfc_team.eliminated %}fw-bold{% endif %}">
+                                        {{ sb.seed1 }}. {{ nfc_team.name if nfc_team else 'TBD' }}
+                                    </span>
+                                    {% if nfc_team and nfc_team.playoff_wins >= 4 %}
+                                    <span class="badge bg-warning text-dark">CHAMP</span>
+                                    {% elif nfc_team and nfc_team.eliminated %}
+                                    <span class="badge bg-danger">L</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="card mb-3">
+                            <div class="card-body p-2 text-muted">
+                                TBD
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Playoff Teams Seeding -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5>AFC Playoff Seeding</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Seed</th>
+                                    <th>Team</th>
+                                    <th>Record</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for team in playoff_teams.AFC %}
+                                <tr>
+                                    <td>{{ team.playoff_seed }}</td>
+                                    <td>{{ team.name }}</td>
+                                    <td>{{ team.wins }}-{{ team.losses }}</td>
+                                    <td>
+                                        {% if team.playoff_wins >= 4 %}
+                                        <span class="badge bg-warning text-dark">CHAMPION</span>
+                                        {% elif team.eliminated %}
+                                        <span class="badge bg-danger">Eliminated</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5>NFC Playoff Seeding</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Seed</th>
+                                    <th>Team</th>
+                                    <th>Record</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for team in playoff_teams.NFC %}
+                                <tr>
+                                    <td>{{ team.playoff_seed }}</td>
+                                    <td>{{ team.name }}</td>
+                                    <td>{{ team.wins }}-{{ team.losses }}</td>
+                                    <td>
+                                        {% if team.playoff_wins >= 4 %}
+                                        <span class="badge bg-warning text-dark">CHAMPION</span>
+                                        {% elif team.eliminated %}
+                                        <span class="badge bg-danger">Eliminated</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

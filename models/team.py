@@ -27,6 +27,12 @@ class Team:
         self.last_game_stats = {}
         self.last_game_plays = []  # Play-by-play descriptions from last game
 
+        # Playoff-specific tracking
+        self.playoff_wins = 0
+        self.playoff_losses = 0
+        self.playoff_seed = None
+        self.eliminated = False
+
     def reset_score(self):
         """Reset the team's current score to 0"""
         self.score = 0

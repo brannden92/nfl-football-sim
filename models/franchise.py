@@ -12,6 +12,11 @@ class Franchise:
         self.current_season = current_season
         self.current_week = current_week
 
+        # Playoff state tracking
+        self.playoff_state = None  # None, 'wildcard', 'divisional', 'conference', 'superbowl'
+        self.playoff_bracket = {}  # Stores playoff matchups and results
+        self.season_complete = False  # True when season/playoffs end for user
+
         # Draft and scouting system
         self.scouting_points = 100  # Points to invest in scouting draft prospects
         self.draft_prospects = []   # List of draft prospect players

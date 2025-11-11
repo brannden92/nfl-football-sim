@@ -527,8 +527,15 @@ def _compute_delta_and_store(team, before_snap, after_players):
     team.last_game_stats = deltas
 
 
-def simulate_game(team1, team2, user_team=None):
-    """Simulate a full game between two teams using time-based system"""
+def simulate_game(team1, team2, user_team=None, is_playoff=False):
+    """Simulate a full game between two teams using time-based system
+
+    Args:
+        team1: First team
+        team2: Second team
+        user_team: User's team name (for display filtering)
+        is_playoff: If True, updates playoff stats instead of regular season stats
+    """
     # Take snapshots BEFORE the game
     before_team1 = _snapshot_player_stats(team1.players)
     before_team2 = _snapshot_player_stats(team2.players)
@@ -624,18 +631,31 @@ def simulate_game(team1, team2, user_team=None):
         all_plays.append("\n=== OVERTIME ===")
         all_plays.append(f"{winner.name} wins in overtime!")
 
-    # Update team season stats
-    team1.points_for += team1.score
-    team1.points_against += team2.score
-    team2.points_for += team2.score
-    team2.points_against += team1.score
-
-    if winner == team1:
-        team1.wins += 1
-        team2.losses += 1
+    # Update team season stats (regular or playoff)
+    if is_playoff:
+        # Playoff stats don't affect points_for/points_against (those are regular season only)
+        # Only track playoff wins/losses
+        if winner == team1:
+            team1.playoff_wins += 1
+            team2.playoff_losses += 1
+            team2.eliminated = True
+        else:
+            team2.playoff_wins += 1
+            team1.playoff_losses += 1
+            team1.eliminated = True
     else:
-        team2.wins += 1
-        team1.losses += 1
+        # Regular season stats
+        team1.points_for += team1.score
+        team1.points_against += team2.score
+        team2.points_for += team2.score
+        team2.points_against += team1.score
+
+        if winner == team1:
+            team1.wins += 1
+            team2.losses += 1
+        else:
+            team2.wins += 1
+            team1.losses += 1
 
     # Add game summary to play-by-play
     all_plays.append("\n" + "=" * 70)

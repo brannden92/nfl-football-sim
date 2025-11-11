@@ -59,7 +59,7 @@
         {% if next_opponent %}
         <div class="card mb-4">
             <div class="card-header bg-primary text-white">
-                <h5>Week {{ franchise.current_week }} - Next Game</h5>
+                <h5>{% if franchise.playoff_state %}{{ franchise.playoff_state|title }} Round{% else %}Week {{ franchise.current_week }}{% endif %} - Next Game</h5>
             </div>
             <div class="card-body">
                 <h4>vs {{ next_opponent.name }}</h4>
@@ -89,9 +89,17 @@
             </div>
         </div>
         {% else %}
-        <div class="alert alert-info">
+        <div class="alert {% if franchise.season_complete %}alert-success{% else %}alert-info{% endif %}">
+            {% if franchise.season_complete %}
             <h5>Season Complete!</h5>
-            <p>The regular season has ended. Proceed to playoffs!</p>
+            <p>Your season has ended. {% if user_team.playoff_wins >= 4 %}Congratulations on winning the Super Bowl!{% elif user_team.eliminated %}You were eliminated in the playoffs.{% else %}You did not make the playoffs.{% endif %}</p>
+            {% elif franchise.playoff_state %}
+            <h5>Playoff Time!</h5>
+            <p>The regular season has ended. {% if user_team.eliminated %}You were eliminated from playoff contention.{% else %}Check the <a href="{{ url_for('league_playoffs') }}">Playoffs page</a> to see the bracket!{% endif %}</p>
+            {% else %}
+            <h5>Regular Season Complete!</h5>
+            <p>The regular season has ended. Return to this page to see playoff matchups!</p>
+            {% endif %}
         </div>
         {% endif %}
 
