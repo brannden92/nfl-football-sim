@@ -6,10 +6,44 @@ from prettytable import PrettyTable
 
 def calculate_team_ratings(team, games_played):
     """Calculate offensive and defensive ratings for a team"""
+
+    # If no games played, calculate ratings based on player skills
     if games_played == 0:
+        # Passing offense: Based on QB + receivers
+        if team.qb_starters:
+            qb_skill = sum(qb.skill for qb in team.qb_starters) / len(team.qb_starters)
+            receiver_skill = 0
+            receivers = team.wr_starters + team.te_starters
+            if receivers:
+                receiver_skill = sum(r.skill for r in receivers) / len(receivers)
+            pass_off = int((qb_skill * 0.6 + receiver_skill * 0.4))
+        else:
+            pass_off = 50
+
+        # Rushing offense: Based on RBs
+        if team.rb_starters:
+            rb_skill = sum(rb.skill for rb in team.rb_starters) / len(team.rb_starters)
+            rush_off = int(rb_skill)
+        else:
+            rush_off = 50
+
+        # Defense: Based on defensive players
+        if team.defense_starters:
+            def_skill = sum(d.skill for d in team.defense_starters) / len(team.defense_starters)
+            pass_def = int(def_skill)
+            rush_def = int(def_skill)
+        else:
+            pass_def = 50
+            rush_def = 50
+
+        special_teams = 50
+
         return {
-            'pass_off': 50, 'rush_off': 50, 'pass_def': 50,
-            'rush_def': 50, 'special_teams': 50
+            'pass_off': max(30, min(99, pass_off)),
+            'rush_off': max(30, min(99, rush_off)),
+            'pass_def': max(30, min(99, pass_def)),
+            'rush_def': max(30, min(99, rush_def)),
+            'special_teams': special_teams
         }
 
     # Calculate passing offense rating (yards per game and TD/INT ratio)
