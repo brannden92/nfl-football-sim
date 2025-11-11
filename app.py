@@ -97,10 +97,20 @@ def setup():
         return redirect(url_for('index'))
 
     # Show team selection
-    teams = create_new_league()
-    team_names = sorted([t.name for t in teams])
+    try:
+        teams = create_new_league()
+        team_names = sorted([t.name for t in teams])
+        print(f"Loaded {len(teams)} teams for selection")  # Debug log
 
-    return render_template('setup.html', team_names=team_names)
+        if not team_names:
+            return render_template('setup.html', team_names=[], error="No teams loaded. Check if fake_nfl_rosters.xlsx exists.")
+
+        return render_template('setup.html', team_names=team_names)
+    except Exception as e:
+        print(f"Error loading teams: {e}")  # Debug log
+        import traceback
+        traceback.print_exc()
+        return render_template('setup.html', team_names=[], error=f"Error loading teams: {str(e)}")
 
 
 @app.route('/simulate')
