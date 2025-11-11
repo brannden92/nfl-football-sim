@@ -412,7 +412,7 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
                     time_remaining -= play_time
                     mins, secs = divmod(int(time_remaining), 60)
                     plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Field goal attempt from {distance_to_fg} yards - GOOD! ({play_time}s)")
-                    return plays, 20, total_time_used, total_yards  # Touchback after FG
+                    return plays, 25, total_time_used, total_yards  # Touchback after FG
                 else:
                     play_time = 5
                     total_time_used += play_time
@@ -439,7 +439,7 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
                     new_field_pos = min(100, field_pos + punt_yards - 8)  # Return
                     plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: SHANKED PUNT! {punt_yards} yards, returned to {get_field_position_str(off_abbrev, new_field_pos)} ({play_time}s)")
                 elif is_touchback:
-                    new_field_pos = 20
+                    new_field_pos = 25
                     plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Punt - touchback ({play_time}s)")
                 else:
                     new_field_pos = field_pos + punt_yards - random.randint(0, 12)  # Return
@@ -488,7 +488,7 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
 
         # Check for touchdown
         if yards_to_go <= 0:
-            return plays, 20, total_time_used, total_yards  # Touchback after TD
+            return plays, 25, total_time_used, total_yards  # Touchback after TD
 
         # Update downs
         if distance <= 0:
@@ -552,7 +552,7 @@ def simulate_game(team1, team2, user_team=None):
 
     # Coin toss - team1 receives first
     possession = team1
-    field_pos = 20  # Start at 20 yard line (touchback)
+    field_pos = 25  # Start at 25 yard line (touchback)
 
     while quarter <= 4:
         while time_in_quarter > 10:  # Need at least 10 seconds for a drive
@@ -565,6 +565,7 @@ def simulate_game(team1, team2, user_team=None):
                 team2_drives += 1
 
             score_diff = offense.score - defense.score
+            score_before = offense.score
 
             # Simulate drive
             drive_plays, end_field_pos, time_used, yards_gained = simulate_drive(
@@ -593,9 +594,14 @@ def simulate_game(team1, team2, user_team=None):
             # Switch possession
             possession = team2 if possession == team1 else team1
 
-            # Set new field position (from defense's perspective)
-            field_pos = 100 - end_field_pos
-            field_pos = max(1, min(99, field_pos))
+            # Set new field position
+            # If offense scored, next team gets kickoff at own 25
+            if offense.score > score_before:
+                field_pos = 25
+            else:
+                # Turnover/punt - flip field position
+                field_pos = 100 - end_field_pos
+                field_pos = max(1, min(99, field_pos))
 
         # Move to next quarter
         quarter += 1
@@ -604,7 +610,7 @@ def simulate_game(team1, team2, user_team=None):
         if quarter == 3:
             # Second half kickoff - reverse possession
             possession = team2
-            field_pos = 20
+            field_pos = 25
 
     # Determine winner
     if team1.score > team2.score:
