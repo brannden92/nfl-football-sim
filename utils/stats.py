@@ -436,3 +436,172 @@ def view_last_game_plays(team):
         print(play)
 
     print(f"{'=' * 70}\n")
+
+
+def calculate_team_stats(team, games_played):
+    """Calculate team statistics for web display"""
+    if games_played == 0:
+        return {
+            'ppg': '0.0',
+            'papg': '0.0',
+            'pass_ypg': '0',
+            'pass_yapg': 'N/A',
+            'pass_tds_for': 0,
+            'pass_tds_against': 0,
+            'rush_ypg': '0',
+            'rush_yapg': 'N/A',
+            'rush_tds_for': 0,
+            'rush_tds_against': 0,
+            'fg_pct': 'N/A',
+            'longest_fg': 0,
+            'avg_punt': 'N/A'
+        }
+
+    # Points per game
+    ppg = round(team.points_for / games_played, 1)
+    papg = round(team.points_against / games_played, 1)
+
+    # Passing stats
+    total_pass_yards = sum(p.pass_yards for p in team.qb_starters)
+    pass_ypg = round(total_pass_yards / games_played) if games_played > 0 else 0
+    pass_tds_for = sum(p.pass_td for p in team.qb_starters)
+
+    # Rushing stats
+    total_rush_yards = sum(p.rush_yards for p in team.rb_starters + team.qb_starters)
+    rush_ypg = round(total_rush_yards / games_played) if games_played > 0 else 0
+    rush_tds_for = sum(p.rush_td for p in team.rb_starters + team.qb_starters)
+
+    # Defensive stats (TDs allowed - placeholder for now)
+    pass_tds_against = 0  # Would need opponent data
+    rush_tds_against = 0  # Would need opponent data
+    pass_yapg = 'N/A'  # Would need opponent data
+    rush_yapg = 'N/A'  # Would need opponent data
+
+    # Special teams stats
+    if team.k_starters:
+        kicker = team.k_starters[0]
+        # Placeholder - would need actual FG attempts/makes tracking
+        fg_pct = 'N/A'
+        longest_fg = getattr(kicker, 'longest_fg', 0) if hasattr(kicker, 'longest_fg') else 0
+    else:
+        fg_pct = 'N/A'
+        longest_fg = 0
+
+    if team.p_starters:
+        punter = team.p_starters[0]
+        # Placeholder - would need actual punt tracking
+        avg_punt = 'N/A'
+    else:
+        avg_punt = 'N/A'
+
+    return {
+        'ppg': ppg,
+        'papg': papg,
+        'pass_ypg': pass_ypg,
+        'pass_yapg': pass_yapg,
+        'pass_tds_for': pass_tds_for,
+        'pass_tds_against': pass_tds_against,
+        'rush_ypg': rush_ypg,
+        'rush_yapg': rush_yapg,
+        'rush_tds_for': rush_tds_for,
+        'rush_tds_against': rush_tds_against,
+        'fg_pct': fg_pct,
+        'longest_fg': longest_fg,
+        'avg_punt': avg_punt
+    }
+
+
+def get_top_players(team, games_played):
+    """Get top players for web display with their season stats"""
+    top_players = []
+
+    # QB - Top QB by passing yards
+    if team.qb_starters:
+        qb = max(team.qb_starters, key=lambda p: p.pass_yards)
+        if games_played > 0:
+            comp_pct = round(qb.pass_completions / qb.pass_attempts * 100, 1) if qb.pass_attempts > 0 else 0
+            stats_line = f"{qb.pass_completions}/{qb.pass_attempts} ({comp_pct}%), {qb.pass_yards} yds, {qb.pass_td} TD, {qb.interceptions} INT"
+        else:
+            stats_line = "No stats yet"
+        top_players.append({
+            'position': 'QB',
+            'name': qb.name,
+            'skill': qb.skill,
+            'stats_line': stats_line
+        })
+
+    # RB - Top RB by rushing yards
+    if team.rb_starters:
+        rb = max(team.rb_starters, key=lambda p: p.rush_yards)
+        if games_played > 0:
+            ypa = round(rb.rush_yards / rb.rush_attempts, 1) if rb.rush_attempts > 0 else 0
+            stats_line = f"{rb.rush_attempts} att, {rb.rush_yards} yds ({ypa} avg), {rb.rush_td} TD"
+        else:
+            stats_line = "No stats yet"
+        top_players.append({
+            'position': 'RB',
+            'name': rb.name,
+            'skill': rb.skill,
+            'stats_line': stats_line
+        })
+
+    # WR - Top WR by receiving yards
+    if team.wr_starters:
+        wr = max(team.wr_starters, key=lambda p: p.rec_yards)
+        if games_played > 0:
+            ypc = round(wr.rec_yards / wr.rec_catches, 1) if wr.rec_catches > 0 else 0
+            stats_line = f"{wr.rec_catches} rec, {wr.rec_yards} yds ({ypc} avg), {wr.rec_td} TD"
+        else:
+            stats_line = "No stats yet"
+        top_players.append({
+            'position': 'WR',
+            'name': wr.name,
+            'skill': wr.skill,
+            'stats_line': stats_line
+        })
+
+    # TE - Top TE by receiving yards
+    if team.te_starters:
+        te = max(team.te_starters, key=lambda p: p.rec_yards)
+        if games_played > 0:
+            ypc = round(te.rec_yards / te.rec_catches, 1) if te.rec_catches > 0 else 0
+            stats_line = f"{te.rec_catches} rec, {te.rec_yards} yds ({ypc} avg), {te.rec_td} TD"
+        else:
+            stats_line = "No stats yet"
+        top_players.append({
+            'position': 'TE',
+            'name': te.name,
+            'skill': te.skill,
+            'stats_line': stats_line
+        })
+
+    # Top 3 defensive players by combined tackles + sacks
+    if team.defense_starters:
+        top_defenders = sorted(team.defense_starters, key=lambda p: p.tackles + p.sacks, reverse=True)[:3]
+        for defender in top_defenders:
+            if games_played > 0:
+                stats_line = f"{defender.tackles} tkl, {defender.sacks} sacks, {defender.interceptions_def} INT"
+            else:
+                stats_line = "No stats yet"
+            top_players.append({
+                'position': defender.position,
+                'name': defender.name,
+                'skill': defender.skill,
+                'stats_line': stats_line
+            })
+
+    # Kicker
+    if team.k_starters:
+        k = team.k_starters[0]
+        if games_played > 0:
+            stats_line = "Stats tracking coming soon"
+        else:
+            stats_line = "No stats yet"
+        top_players.append({
+            'position': 'K',
+            'name': k.name,
+            'skill': k.skill,
+            'stats_line': stats_line
+        })
+
+    return top_players

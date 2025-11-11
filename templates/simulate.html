@@ -41,12 +41,49 @@
         <!-- Opponent Preview -->
         <div class="card mb-4" id="opponent-preview">
             <div class="card-header bg-secondary text-white">
-                <h5>Opponent Preview - {{ opponent.name }}</h5>
+                <h5>Matchup Preview</h5>
             </div>
             <div class="card-body">
-                <div class="row">
+                <!-- Team Ratings -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-center mb-3">Team Ratings</h6>
+                    </div>
                     <div class="col-md-6">
-                        <h6>Team Ratings</h6>
+                        <h6 class="text-primary">{{ user_team.name }}</h6>
+                        <div class="mb-2">
+                            <small>Pass Offense: {{ user_ratings.pass_off }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" style="width: {{ user_ratings.pass_off }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Rush Offense: {{ user_ratings.rush_off }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" style="width: {{ user_ratings.rush_off }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Pass Defense: {{ user_ratings.pass_def }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-warning" style="width: {{ user_ratings.pass_def }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Rush Defense: {{ user_ratings.rush_def }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-danger" style="width: {{ user_ratings.rush_def }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Special Teams: {{ user_ratings.special_teams }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-secondary" style="width: {{ user_ratings.special_teams }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-danger">{{ opponent.name }}</h6>
                         <div class="mb-2">
                             <small>Pass Offense: {{ opponent_ratings.pass_off }}/99</small>
                             <div class="progress">
@@ -59,8 +96,6 @@
                                 <div class="progress-bar bg-success" style="width: {{ opponent_ratings.rush_off }}%"></div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
                         <div class="mb-2">
                             <small>Pass Defense: {{ opponent_ratings.pass_def }}/99</small>
                             <div class="progress">
@@ -73,6 +108,144 @@
                                 <div class="progress-bar bg-danger" style="width: {{ opponent_ratings.rush_def }}%"></div>
                             </div>
                         </div>
+                        <div class="mb-2">
+                            <small>Special Teams: {{ opponent_ratings.special_teams }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-secondary" style="width: {{ opponent_ratings.special_teams }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team Statistics -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-center mb-3">Team Statistics</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td>Points/Game</td>
+                                    <td class="text-end"><strong>{{ user_stats.ppg }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Points Allowed/Game</td>
+                                    <td class="text-end"><strong>{{ user_stats.papg }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Pass Yards/Game</td>
+                                    <td class="text-end">{{ user_stats.pass_ypg }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Pass Yards Allowed/Game</td>
+                                    <td class="text-end">{{ user_stats.pass_yapg }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Pass TDs (For/Against)</td>
+                                    <td class="text-end">{{ user_stats.pass_tds_for }}/{{ user_stats.pass_tds_against }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Rush Yards/Game</td>
+                                    <td class="text-end">{{ user_stats.rush_ypg }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Rush Yards Allowed/Game</td>
+                                    <td class="text-end">{{ user_stats.rush_yapg }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Rush TDs (For/Against)</td>
+                                    <td class="text-end">{{ user_stats.rush_tds_for }}/{{ user_stats.rush_tds_against }}</td>
+                                </tr>
+                                <tr>
+                                    <td>FG Percentage</td>
+                                    <td class="text-end">{{ user_stats.fg_pct }}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Longest FG</td>
+                                    <td class="text-end">{{ user_stats.longest_fg }} yds</td>
+                                </tr>
+                                <tr>
+                                    <td>Avg Punt Distance</td>
+                                    <td class="text-end">{{ user_stats.avg_punt }} yds</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td>Points/Game</td>
+                                    <td class="text-end"><strong>{{ opponent_stats.ppg }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Points Allowed/Game</td>
+                                    <td class="text-end"><strong>{{ opponent_stats.papg }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Pass Yards/Game</td>
+                                    <td class="text-end">{{ opponent_stats.pass_ypg }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Pass Yards Allowed/Game</td>
+                                    <td class="text-end">{{ opponent_stats.pass_yapg }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Pass TDs (For/Against)</td>
+                                    <td class="text-end">{{ opponent_stats.pass_tds_for }}/{{ opponent_stats.pass_tds_against }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Rush Yards/Game</td>
+                                    <td class="text-end">{{ opponent_stats.rush_ypg }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Rush Yards Allowed/Game</td>
+                                    <td class="text-end">{{ opponent_stats.rush_yapg }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Rush TDs (For/Against)</td>
+                                    <td class="text-end">{{ opponent_stats.rush_tds_for }}/{{ opponent_stats.rush_tds_against }}</td>
+                                </tr>
+                                <tr>
+                                    <td>FG Percentage</td>
+                                    <td class="text-end">{{ opponent_stats.fg_pct }}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Longest FG</td>
+                                    <td class="text-end">{{ opponent_stats.longest_fg }} yds</td>
+                                </tr>
+                                <tr>
+                                    <td>Avg Punt Distance</td>
+                                    <td class="text-end">{{ opponent_stats.avg_punt }} yds</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Top Players -->
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="text-center mb-3">Top Players</h6>
+                    </div>
+                    <div class="col-md-6">
+                        {% for player in user_top_players %}
+                        <div class="mb-2">
+                            <strong>{{ player.position }}</strong>: {{ player.name }} ({{ player.skill }})
+                            <br>
+                            <small class="text-muted">{{ player.stats_line }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {% for player in opponent_top_players %}
+                        <div class="mb-2">
+                            <strong>{{ player.position }}</strong>: {{ player.name }} ({{ player.skill }})
+                            <br>
+                            <small class="text-muted">{{ player.stats_line }}</small>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -208,38 +381,7 @@ function displayNextPlay() {
     // Auto-scroll to bottom
     playDiv.scrollTop = playDiv.scrollHeight;
 
-    // Update scores by parsing plays for scoring
-    updateScoresFromPlays();
-
     playIndex++;
-}
-
-function updateScoresFromPlays() {
-    let userScore = 0;
-    let oppScore = 0;
-    const userTeam = "{{ user_team.name }}";
-
-    // Parse all plays up to current index for scores
-    for (let i = 0; i <= playIndex; i++) {
-        const play = plays[i];
-
-        if (play.includes(userTeam)) {
-            if (play.includes('TOUCHDOWN!!!')) {
-                userScore += 7;
-            } else if (play.includes('GOOD!') && play.includes('Field goal')) {
-                userScore += 3;
-            }
-        } else {
-            if (play.includes('TOUCHDOWN!!!')) {
-                oppScore += 7;
-            } else if (play.includes('GOOD!') && play.includes('Field goal')) {
-                oppScore += 3;
-            }
-        }
-    }
-
-    document.getElementById('user-score').textContent = userScore;
-    document.getElementById('opponent-score').textContent = oppScore;
 }
 </script>
 {% endblock %}

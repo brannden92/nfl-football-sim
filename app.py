@@ -8,8 +8,9 @@ from models import Franchise
 from game import simulate_game, run_playoffs
 from utils import (
     create_new_league, save_franchise, load_franchise,
-    print_team_summary, calculate_team_ratings, view_standings,
-    generate_draft_prospects, run_scouting, run_draft
+    print_team_summary, calculate_team_ratings, calculate_team_stats,
+    get_top_players, view_standings, generate_draft_prospects,
+    run_scouting, run_draft
 )
 from config import SEASON_GAMES
 
@@ -130,13 +131,29 @@ def simulate():
     opponent = available[(franchise.current_week - 1) % len(available)]
 
     games_played = franchise.current_week - 1
+
+    # Calculate ratings for both teams
+    user_ratings = calculate_team_ratings(user_team, games_played)
     opponent_ratings = calculate_team_ratings(opponent, games_played)
+
+    # Calculate statistics for both teams
+    user_stats = calculate_team_stats(user_team, games_played)
+    opponent_stats = calculate_team_stats(opponent, games_played)
+
+    # Get top players for both teams
+    user_top_players = get_top_players(user_team, games_played)
+    opponent_top_players = get_top_players(opponent, games_played)
 
     return render_template('simulate.html',
                          franchise=franchise,
                          user_team=user_team,
                          opponent=opponent,
-                         opponent_ratings=opponent_ratings)
+                         user_ratings=user_ratings,
+                         opponent_ratings=opponent_ratings,
+                         user_stats=user_stats,
+                         opponent_stats=opponent_stats,
+                         user_top_players=user_top_players,
+                         opponent_top_players=opponent_top_players)
 
 
 @app.route('/api/simulate-game', methods=['POST'])
