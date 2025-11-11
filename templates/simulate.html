@@ -27,13 +27,25 @@
                 </div>
 
                 <div class="text-center mt-4">
-                    <button id="simulate-btn" class="btn btn-success btn-lg me-3" onclick="simulateGame(false)">
+                    <button id="simulate-btn" class="btn btn-success btn-lg me-3" onclick="startWatchGame()">
                         Watch Game
                     </button>
                     <button id="fast-sim-btn" class="btn btn-primary btn-lg" onclick="simulateGame(true)">
                         Fast Sim
                     </button>
                     <div id="game-status" class="mt-3"></div>
+
+                    <!-- Sim Speed Controls (hidden until watch game starts) -->
+                    <div id="sim-speed-controls" class="mt-3" style="display: none;">
+                        <label class="me-2 fw-bold">Sim Speed:</label>
+                        <div class="btn-group" role="group">
+                            <button type="button" id="speed-click" class="btn btn-sm btn-outline-secondary" onclick="setSimSpeed('click')">Click Per Play</button>
+                            <button type="button" id="speed-slow" class="btn btn-sm btn-outline-secondary" onclick="setSimSpeed('slow')">Slow</button>
+                            <button type="button" id="speed-normal" class="btn btn-sm btn-outline-secondary active" onclick="setSimSpeed('normal')">Normal</button>
+                            <button type="button" id="speed-fast" class="btn btn-sm btn-outline-secondary" onclick="setSimSpeed('fast')">Fast</button>
+                        </div>
+                        <button id="next-play-btn" class="btn btn-sm btn-primary ms-3" style="display: none;" onclick="advancePlay()">Next Play →</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -258,8 +270,8 @@
             </div>
             <div class="card-body">
                 <!-- Field Position Visualization -->
-                <div id="field-position" class="mb-3 p-3 bg-light border rounded" style="font-family: monospace; font-size: 12px; white-space: pre; overflow-x: auto;">
-                    <div id="field-display" class="text-center"></div>
+                <div id="field-position" class="mb-3 p-3 border rounded" style="background: linear-gradient(to right, #28a745 0%, #28a745 5%, #e8f5e9 5%, #e8f5e9 95%, #dc3545 95%, #dc3545 100%); overflow-x: auto;">
+                    <div id="field-display" class="text-center" style="font-family: 'Courier New', monospace;"></div>
                 </div>
 
                 <div id="playbyplay" style="max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 14px;">
@@ -276,14 +288,27 @@ let playIndex = 0;
 let plays = [];
 let intervalId = null;
 let gameData = null;
-let currentOffense = null;  // Track which team has the ball
+let currentOffense = null;
 let userScore = 0;
 let opponentScore = 0;
-let currentFieldPosition = 25;  // 0-100 yard line
-let offenseAbbrev = '';
-let defenseAbbrev = '';
+let currentFieldPosition = 25;
+let currentSimSpeed = 'normal';
 const userTeamName = "{{ user_team.name }}";
 const opponentTeamName = "{{ opponent.name }}";
+const userTeamAbbrev = getTeamAbbrev(userTeamName);
+const opponentTeamAbbrev = getTeamAbbrev(opponentTeamName);
+
+function getTeamAbbrev(teamName) {
+    const words = teamName.split(' ');
+    if (words.length >= 2) {
+        return words[words.length - 1].substring(0, 3).toUpperCase();
+    }
+    return teamName.substring(0, 3).toUpperCase();
+}
+
+function startWatchGame() {
+    simulateGame(false);
+}
 
 function simulateGame(fastSim) {
     const btn = document.getElementById('simulate-btn');
@@ -291,6 +316,7 @@ function simulateGame(fastSim) {
     const status = document.getElementById('game-status');
     const preview = document.getElementById('opponent-preview');
     const playbyplayCard = document.getElementById('playbyplay-card');
+    const speedControls = document.getElementById('sim-speed-controls');
 
     btn.disabled = true;
     fastBtn.disabled = true;
@@ -326,10 +352,19 @@ function simulateGame(fastSim) {
             // No plays - just show results
             showGameResults(data);
         } else {
-            // Show play-by-play (faster for quick sim)
+            // Show play-by-play
             playbyplayCard.style.display = 'block';
-            const delay = fastSim ? 10 : 200;  // Much faster for quick sim
-            intervalId = setInterval(displayNextPlay, delay);
+
+            if (!fastSim) {
+                // Show speed controls for watch game
+                speedControls.style.display = 'block';
+                startPlayback();
+            } else {
+                // Fast sim
+                const delay = 10;
+                intervalId = setInterval(displayNextPlay, delay);
+            }
+
             status.textContent = 'Game in progress...';
         }
     })
@@ -341,6 +376,41 @@ function simulateGame(fastSim) {
         btn.textContent = 'Watch Game';
         fastBtn.textContent = 'Fast Sim';
     });
+}
+
+function startPlayback() {
+    if (currentSimSpeed === 'click') {
+        // Manual mode - show next play button
+        document.getElementById('next-play-btn').style.display = 'inline-block';
+    } else {
+        // Automatic playback
+        document.getElementById('next-play-btn').style.display = 'none';
+        let delay = 200; // normal
+        if (currentSimSpeed === 'slow') delay = 500;
+        else if (currentSimSpeed === 'fast') delay = 50;
+
+        intervalId = setInterval(displayNextPlay, delay);
+    }
+}
+
+function setSimSpeed(speed) {
+    currentSimSpeed = speed;
+
+    // Update button states
+    document.querySelectorAll('#sim-speed-controls .btn-group button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById(`speed-${speed}`).classList.add('active');
+
+    // Restart playback with new speed
+    if (intervalId) {
+        clearInterval(intervalId);
+    }
+    startPlayback();
+}
+
+function advancePlay() {
+    displayNextPlay();
 }
 
 function showGameResults(data) {
@@ -362,6 +432,9 @@ function showGameResults(data) {
 
     document.getElementById('game-status').innerHTML = statusHtml;
 
+    // Hide speed controls
+    document.getElementById('sim-speed-controls').style.display = 'none';
+
     // Enable button to continue
     setTimeout(() => {
         const btn = document.getElementById('simulate-btn');
@@ -373,7 +446,7 @@ function showGameResults(data) {
 
 function displayNextPlay() {
     if (playIndex >= plays.length) {
-        clearInterval(intervalId);
+        if (intervalId) clearInterval(intervalId);
         showGameResults(gameData);
         return;
     }
@@ -434,14 +507,6 @@ function displayNextPlay() {
     playIndex++;
 }
 
-function getTeamAbbrev(teamName) {
-    const words = teamName.split(' ');
-    if (words.length >= 2) {
-        return words[words.length - 1].substring(0, 3).toUpperCase();
-    }
-    return teamName.substring(0, 3).toUpperCase();
-}
-
 function parseFieldPosition(play) {
     // Look for field position format like "at DET 43" or "at OWN 25" or "at 50"
     const fieldPosMatch = play.match(/at\s+(\w+)\s+(\d+)/);
@@ -462,51 +527,80 @@ function parseFieldPosition(play) {
 }
 
 function renderField() {
-    if (!offenseAbbrev || !defenseAbbrev) return;
-
     const fieldDisplay = document.getElementById('field-display');
-    let fieldHtml = '';
 
-    // Calculate ball position (0-100 scale)
-    let ballPos = currentFieldPosition;
-    let yardsToGoal = 100 - ballPos;
+    // Determine which direction we're going
+    // If user has ball, they're moving left-to-right (toward opponent endzone)
+    // If opponent has ball, they're moving right-to-left (toward user endzone)
+    let ballPosFromUserSide;
+    let direction = '';
 
-    // Create field visualization
-    // Left side is always offense's goal (0), right side is defense's goal (100)
-    const width = 60; // characters
-    const ballPosition = Math.floor((ballPos / 100) * width);
+    if (currentOffense === 'user') {
+        ballPosFromUserSide = currentFieldPosition;
+        direction = '→'; // User attacking right
+    } else {
+        ballPosFromUserSide = 100 - currentFieldPosition;
+        direction = '←'; // Opponent attacking left
+    }
 
-    let field = '';
+    // Build enhanced field visualization
+    const fieldWidth = 80;
+    const ballPixel = Math.floor((ballPosFromUserSide / 100) * fieldWidth);
 
-    // Build the field string
-    for (let i = 0; i <= width; i++) {
-        if (i === 0) {
-            field += offenseAbbrev;
-        } else if (i === width) {
-            field += defenseAbbrev;
-        } else if (i === ballPosition) {
-            field += '🏈';
-        } else if (i % 6 === 0) {
-            field += '|';
+    let topLine = `${userTeamAbbrev} ${'-'.repeat(fieldWidth)} ${opponentTeamAbbrev}`;
+    let fieldLine = userTeamAbbrev + ' ';
+
+    for (let i = 0; i < fieldWidth; i++) {
+        if (i === ballPixel) {
+            fieldLine += '🏈';
+        } else if (i === 0 || i === fieldWidth - 1) {
+            fieldLine += '║';
+        } else if (i % 10 === 0) {
+            fieldLine += '│';
         } else {
-            field += '-';
+            fieldLine += '─';
+        }
+    }
+    fieldLine += ' ' + opponentTeamAbbrev;
+
+    // Yard markers
+    let yardLine = userTeamAbbrev + ' ';
+    for (let i = 0; i < fieldWidth; i++) {
+        if (i === 0) yardLine += '0';
+        else if (i === fieldWidth / 2) yardLine += '50';
+        else if (i === fieldWidth - 1) yardLine += '0';
+        else if (i % 10 === 0) {
+            const yard = Math.floor((i / fieldWidth) * 100);
+            if (yard <= 50) yardLine += String(yard).padStart(2, ' ').substring(0, 1);
+            else yardLine += String(100 - yard).padStart(2, ' ').substring(0, 1);
+        } else yardLine += ' ';
+    }
+    yardLine += ' ' + opponentTeamAbbrev;
+
+    // Position info
+    let posInfo = '';
+    if (currentFieldPosition === 50) {
+        posInfo = `${direction} Ball at 50 yard line`;
+    } else {
+        const offense = currentOffense === 'user' ? userTeamAbbrev : opponentTeamAbbrev;
+        const defense = currentOffense === 'user' ? opponentTeamAbbrev : userTeamAbbrev;
+        const yardsToGoal = 100 - currentFieldPosition;
+
+        if (currentFieldPosition < 50) {
+            posInfo = `${direction} ${offense} has ball at ${offense} ${currentFieldPosition} (${yardsToGoal} yds to goal)`;
+        } else {
+            posInfo = `${direction} ${offense} has ball at ${defense} ${100 - currentFieldPosition} (${yardsToGoal} yds to goal)`;
         }
     }
 
-    fieldHtml = `<div style="font-size: 14px; font-weight: bold;">${field}</div>`;
-    fieldHtml += `<div style="font-size: 11px; margin-top: 5px;">`;
-
-    if (ballPos === 50) {
-        fieldHtml += `Ball at: 50 yard line (${yardsToGoal} yards to goal)`;
-    } else if (ballPos < 50) {
-        fieldHtml += `Ball at: ${offenseAbbrev} ${ballPos} (${yardsToGoal} yards to goal)`;
-    } else {
-        fieldHtml += `Ball at: ${defenseAbbrev} ${100 - ballPos} (${yardsToGoal} yards to goal)`;
-    }
-
-    fieldHtml += `</div>`;
-
-    fieldDisplay.innerHTML = fieldHtml;
+    fieldDisplay.innerHTML = `
+        <div style="font-size: 12px; line-height: 1.6;">
+            <div style="color: #666;">${topLine}</div>
+            <div style="font-size: 16px; font-weight: bold; color: #000;">${fieldLine}</div>
+            <div style="color: #666; font-size: 10px;">${yardLine}</div>
+            <div style="margin-top: 8px; font-size: 13px; font-weight: bold; color: #333;">${posInfo}</div>
+        </div>
+    `;
 }
 
 function updateFieldPosition(play) {
@@ -520,11 +614,9 @@ function updateFieldPosition(play) {
     // Check for drive headers to update offense/defense
     if (play.includes('---') && play.includes('starts at')) {
         if (play.includes(userTeamName)) {
-            offenseAbbrev = getTeamAbbrev(userTeamName);
-            defenseAbbrev = getTeamAbbrev(opponentTeamName);
+            currentOffense = 'user';
         } else if (play.includes(opponentTeamName)) {
-            offenseAbbrev = getTeamAbbrev(opponentTeamName);
-            defenseAbbrev = getTeamAbbrev(userTeamName);
+            currentOffense = 'opponent';
         }
         renderField();
     }
