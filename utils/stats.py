@@ -678,7 +678,7 @@ def calculate_stat_rankings(team, all_teams, games_played):
     # Turnovers (lower is better for offense)
     rankings['turnovers'] = sorted(team_stats_list, key=lambda x: x['turnovers']).index(user_stats) + 1
 
-    # Store actual values too
-    rankings['values'] = user_stats
+    # Store actual values too (renamed from 'values' to avoid collision with dict.values() method)
+    rankings['stat_values'] = user_stats
 
     return rankings

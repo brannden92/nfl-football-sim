@@ -196,15 +196,15 @@
                         <h6 class="text-primary">OFFENSE</h6>
                         <table class="table table-sm">
                             <tbody>
-                                <tr><td>Points For</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.ppg) }} <span class="badge bg-secondary">#{{ stat_rankings.ppg }}</span></td></tr>
-                                <tr><td>Pass Yds/Game</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.pass_ypg) }} <span class="badge bg-secondary">#{{ stat_rankings.pass_ypg }}</span></td></tr>
-                                <tr><td>Completion %</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.completion_pct) }}% <span class="badge bg-secondary">#{{ stat_rankings.completion_pct }}</span></td></tr>
-                                <tr><td>Yds/Pass Att</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.yards_per_attempt) }} <span class="badge bg-secondary">#{{ stat_rankings.yards_per_attempt }}</span></td></tr>
-                                <tr><td>Pass TDs</td><td class="text-end">{{ stat_rankings.values.pass_tds }} <span class="badge bg-secondary">#{{ stat_rankings.pass_tds }}</span></td></tr>
-                                <tr><td>Rush Yds/Game</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.rush_ypg) }} <span class="badge bg-secondary">#{{ stat_rankings.rush_ypg }}</span></td></tr>
-                                <tr><td>Rush Yds/Att</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.rush_ypa) }} <span class="badge bg-secondary">#{{ stat_rankings.rush_ypa }}</span></td></tr>
-                                <tr><td>Rush TDs</td><td class="text-end">{{ stat_rankings.values.rush_tds }} <span class="badge bg-secondary">#{{ stat_rankings.rush_tds }}</span></td></tr>
-                                <tr><td>Turnovers</td><td class="text-end">{{ stat_rankings.values.turnovers }} <span class="badge bg-secondary">#{{ stat_rankings.turnovers }}</span></td></tr>
+                                <tr><td>Points For</td><td class="text-end">{{ "%.1f"|format(stat_rankings.stat_values.ppg) }} <span class="badge bg-secondary">#{{ stat_rankings.ppg }}</span></td></tr>
+                                <tr><td>Pass Yds/Game</td><td class="text-end">{{ "%.1f"|format(stat_rankings.stat_values.pass_ypg) }} <span class="badge bg-secondary">#{{ stat_rankings.pass_ypg }}</span></td></tr>
+                                <tr><td>Completion %</td><td class="text-end">{{ "%.1f"|format(stat_rankings.stat_values.completion_pct) }}% <span class="badge bg-secondary">#{{ stat_rankings.completion_pct }}</span></td></tr>
+                                <tr><td>Yds/Pass Att</td><td class="text-end">{{ "%.1f"|format(stat_rankings.stat_values.yards_per_attempt) }} <span class="badge bg-secondary">#{{ stat_rankings.yards_per_attempt }}</span></td></tr>
+                                <tr><td>Pass TDs</td><td class="text-end">{{ stat_rankings.stat_values.pass_tds }} <span class="badge bg-secondary">#{{ stat_rankings.pass_tds }}</span></td></tr>
+                                <tr><td>Rush Yds/Game</td><td class="text-end">{{ "%.1f"|format(stat_rankings.stat_values.rush_ypg) }} <span class="badge bg-secondary">#{{ stat_rankings.rush_ypg }}</span></td></tr>
+                                <tr><td>Rush Yds/Att</td><td class="text-end">{{ "%.1f"|format(stat_rankings.stat_values.rush_ypa) }} <span class="badge bg-secondary">#{{ stat_rankings.rush_ypa }}</span></td></tr>
+                                <tr><td>Rush TDs</td><td class="text-end">{{ stat_rankings.stat_values.rush_tds }} <span class="badge bg-secondary">#{{ stat_rankings.rush_tds }}</span></td></tr>
+                                <tr><td>Turnovers</td><td class="text-end">{{ stat_rankings.stat_values.turnovers }} <span class="badge bg-secondary">#{{ stat_rankings.turnovers }}</span></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -212,10 +212,10 @@
                         <h6 class="text-danger">DEFENSE</h6>
                         <table class="table table-sm">
                             <tbody>
-                                <tr><td>Points Allowed</td><td class="text-end">{{ "%.1f"|format(stat_rankings.values.papg) }} <span class="badge bg-secondary">#{{ stat_rankings.papg }}</span></td></tr>
-                                <tr><td>Sacks</td><td class="text-end">{{ stat_rankings.values.sacks }} <span class="badge bg-secondary">#{{ stat_rankings.sacks }}</span></td></tr>
-                                <tr><td>Interceptions</td><td class="text-end">{{ stat_rankings.values.def_ints }} <span class="badge bg-secondary">#{{ stat_rankings.def_ints }}</span></td></tr>
-                                <tr><td>Forced Fumbles</td><td class="text-end">{{ stat_rankings.values.forced_fumbles }} <span class="badge bg-secondary">#{{ stat_rankings.forced_fumbles }}</span></td></tr>
+                                <tr><td>Points Allowed</td><td class="text-end">{{ "%.1f"|format(stat_rankings.stat_values.papg) }} <span class="badge bg-secondary">#{{ stat_rankings.papg }}</span></td></tr>
+                                <tr><td>Sacks</td><td class="text-end">{{ stat_rankings.stat_values.sacks }} <span class="badge bg-secondary">#{{ stat_rankings.sacks }}</span></td></tr>
+                                <tr><td>Interceptions</td><td class="text-end">{{ stat_rankings.stat_values.def_ints }} <span class="badge bg-secondary">#{{ stat_rankings.def_ints }}</span></td></tr>
+                                <tr><td>Forced Fumbles</td><td class="text-end">{{ stat_rankings.stat_values.forced_fumbles }} <span class="badge bg-secondary">#{{ stat_rankings.forced_fumbles }}</span></td></tr>
                             </tbody>
                         </table>
                     </div>
