@@ -36,14 +36,33 @@ def calculate_team_ratings(team, games_played):
             pass_def = 50
             rush_def = 50
 
-        special_teams = 50
+        # Special teams: Based on kicker and punter
+        kicker_rating = 0
+        punter_rating = 0
+        if team.k_starters:
+            kicker = team.k_starters[0]
+            kicker_rating = (getattr(kicker, 'kicking_power', kicker.skill) +
+                           getattr(kicker, 'kicking_accuracy', kicker.skill)) / 2
+        if team.p_starters:
+            punter = team.p_starters[0]
+            punter_rating = (getattr(punter, 'kicking_power', punter.skill) +
+                           getattr(punter, 'kicking_accuracy', punter.skill)) / 2
+
+        if kicker_rating > 0 and punter_rating > 0:
+            special_teams = int((kicker_rating + punter_rating) / 2)
+        elif kicker_rating > 0:
+            special_teams = int(kicker_rating)
+        elif punter_rating > 0:
+            special_teams = int(punter_rating)
+        else:
+            special_teams = 50
 
         return {
             'pass_off': max(30, min(99, pass_off)),
             'rush_off': max(30, min(99, rush_off)),
             'pass_def': max(30, min(99, pass_def)),
             'rush_def': max(30, min(99, rush_def)),
-            'special_teams': special_teams
+            'special_teams': max(30, min(99, special_teams))
         }
 
     # Calculate passing offense rating (yards per game and TD/INT ratio)
@@ -108,7 +127,7 @@ def print_opponent_preview(user_team, opponent, all_teams, games_played):
     for i, player in enumerate(all_players, 1):
         print(f"  {i}. {player.name} ({player.position}) - Skill: {player.skill}")
 
-    # Team ratings
+    # Team ratings with rankings
     print(f"\n{'Team Ratings:'}")
     ratings = calculate_team_ratings(opponent, games_played)
     rating_labels = {
@@ -119,11 +138,23 @@ def print_opponent_preview(user_team, opponent, all_teams, games_played):
         'special_teams': 'Special Teams'
     }
 
+    # Calculate all team ratings for ranking
+    all_ratings = {}
+    for team in all_teams:
+        team_ratings = calculate_team_ratings(team, games_played)
+        all_ratings[team.name] = team_ratings
+
+    # Display ratings with rankings
     for key, label in rating_labels.items():
         rating = ratings[key]
         bar_length = int(rating / 5)
         bar = '█' * bar_length + '░' * (20 - bar_length)
-        print(f"  {label:15s}: {bar} {rating}/99")
+
+        # Calculate rank for this rating category
+        sorted_teams = sorted(all_ratings.items(), key=lambda x: x[1][key], reverse=True)
+        rank = next(i + 1 for i, (name, _) in enumerate(sorted_teams) if name == opponent.name)
+
+        print(f"  {label:15s}: {bar} {rating}/99 ({rank}{get_ordinal(rank)})")
 
     print(f"{'=' * 70}\n")
 
