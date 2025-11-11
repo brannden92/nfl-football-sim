@@ -45,7 +45,7 @@ def index():
     franchise = get_franchise()
 
     if not franchise:
-        return render_template('setup.html')
+        return redirect(url_for('setup'))
 
     user_team = get_user_team(franchise)
 
