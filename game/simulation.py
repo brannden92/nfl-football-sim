@@ -230,11 +230,20 @@ def simulate_play(offense, defense, down, distance, yards_to_go, quarter, time_r
         # Check for sack OR QB scramble
         if random.random() < sack_rate:
             if random.random() < 0.60:
-                # Sack
+                # Sack - pick a defensive lineman or linebacker
+                sack_candidates = [p for p in defense.defense_starters if p.position in ['DL', 'LB']]
+                if not sack_candidates:
+                    sack_candidates = defense.defense_starters
+                if sack_candidates:
+                    sacker = random.choice(sack_candidates)
+                    sacker.sacks += 1
+                else:
+                    sacker = def_player
+
                 yards_gained = -random.randint(3, 8)
                 qb.sacks_taken += 1
                 time_elapsed = random.randint(4, 8)
-                play_description = f"{qb.name} sacked by {def_player.name} for {abs(yards_gained)} yard loss"
+                play_description = f"{qb.name} sacked by {sacker.name} for {abs(yards_gained)} yard loss"
             else:
                 # QB Scramble
                 yards_gained = random.randint(2, 12)
@@ -373,8 +382,20 @@ def simulate_play(offense, defense, down, distance, yards_to_go, quarter, time_r
         else:
             rb.rush_td += 1
             play_description += " TOUCHDOWN!!!"
-        offense.score += 7
+        offense.score += 6  # Touchdown is 6 points
         clock_stops = True
+
+        # Extra point attempt (automatic - 99% success rate)
+        kicker = offense.k_starters[0] if offense.k_starters else None
+        if kicker:
+            kicker.xp_attempts += 1
+            if random.random() < 0.99:  # 99% XP success rate
+                kicker.xp_made += 1
+                offense.score += 1
+        else:
+            # No kicker, still convert at high rate
+            if random.random() < 0.95:
+                offense.score += 1
 
     return yards_gained, time_elapsed, clock_stops, False, play_description
 
@@ -405,20 +426,30 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
                 kicker = offense.k_starters[0] if offense.k_starters else None
                 fg_made = attempt_field_goal(kicker, distance_to_fg)
 
+                # Track kicker stats
+                if kicker:
+                    kicker.fg_attempts += 1
+                    if fg_made:
+                        kicker.fg_made += 1
+                        if distance_to_fg > kicker.longest_fg:
+                            kicker.longest_fg = distance_to_fg
+
                 if fg_made:
                     offense.score += 3
                     play_time = 6
                     total_time_used += play_time
                     time_remaining -= play_time
                     mins, secs = divmod(int(time_remaining), 60)
-                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Field goal attempt from {distance_to_fg} yards - GOOD! ({play_time}s)")
+                    kicker_name = kicker.name if kicker else "Kicker"
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Field goal attempt from {distance_to_fg} yards by {kicker_name} - GOOD! ({play_time}s)")
                     return plays, 25, total_time_used, total_yards  # Touchback after FG
                 else:
                     play_time = 5
                     total_time_used += play_time
                     time_remaining -= play_time
                     mins, secs = divmod(int(time_remaining), 60)
-                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Field goal attempt from {distance_to_fg} yards - MISSED! ({play_time}s)")
+                    kicker_name = kicker.name if kicker else "Kicker"
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Field goal attempt from {distance_to_fg} yards by {kicker_name} - MISSED! ({play_time}s)")
                     return plays, field_pos, total_time_used, total_yards  # Defense takes over
 
             # Go for it on short yardage near goal line
@@ -430,21 +461,34 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
                 punter = offense.p_starters[0] if offense.p_starters else None
                 punt_yards, is_touchback, shanked = attempt_punt(punter, yards_to_go)
 
+                # Track punter stats
+                if punter:
+                    punter.punt_attempts += 1
+                    punter.punt_yards += punt_yards
+                    if punt_yards > punter.longest_punt:
+                        punter.longest_punt = punt_yards
+                    # Check if punt landed inside 20
+                    if not is_touchback and not shanked:
+                        new_field_pos_calc = field_pos + punt_yards
+                        if new_field_pos_calc >= 80:  # Inside opponent 20
+                            punter.inside_20 += 1
+
                 play_time = 8
                 total_time_used += play_time
                 time_remaining -= play_time
                 mins, secs = divmod(int(time_remaining), 60)
 
+                punter_name = punter.name if punter else "Punter"
                 if shanked:
                     new_field_pos = min(100, field_pos + punt_yards - 8)  # Return
-                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: SHANKED PUNT! {punt_yards} yards, returned to {get_field_position_str(off_abbrev, new_field_pos)} ({play_time}s)")
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: {punter_name} SHANKED PUNT! {punt_yards} yards, returned to {get_field_position_str(off_abbrev, new_field_pos)} ({play_time}s)")
                 elif is_touchback:
                     new_field_pos = 25
-                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Punt - touchback ({play_time}s)")
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: {punter_name} punts - touchback ({play_time}s)")
                 else:
                     new_field_pos = field_pos + punt_yards - random.randint(0, 12)  # Return
                     new_field_pos = max(1, min(99, new_field_pos))
-                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: Punt {punt_yards} yards to {get_field_position_str(off_abbrev, new_field_pos)} ({play_time}s)")
+                    plays.append(f"Q{quarter} {mins}:{secs:02d} - 4th & {distance}: {punter_name} punts {punt_yards} yards to {get_field_position_str(off_abbrev, new_field_pos)} ({play_time}s)")
 
                 return plays, new_field_pos, total_time_used, total_yards
 
@@ -485,6 +529,12 @@ def simulate_drive(offense, defense, start_field_pos, quarter, time_remaining, s
         field_pos += yards_gained
         yards_to_go -= yards_gained
         distance -= yards_gained
+
+        # Check for safety (offense driven back into own endzone)
+        if field_pos < 0:
+            defense.score += 2
+            plays.append(f"SAFETY! {defense.name} gets 2 points!")
+            return plays, 20, total_time_used, total_yards  # Safety - offense kicks from their 20
 
         # Check for touchdown
         if yards_to_go <= 0:
@@ -625,11 +675,81 @@ def simulate_game(team1, team2, user_team=None, is_playoff=False):
     elif team2.score > team1.score:
         winner = team2
     else:
-        # Overtime
-        winner = random.choice([team1, team2])
-        winner.score += 3
-        all_plays.append("\n=== OVERTIME ===")
-        all_plays.append(f"{winner.name} wins in overtime!")
+        # NFL Overtime rules
+        all_plays.append("\n" + "=" * 70)
+        all_plays.append("=== OVERTIME ===")
+        all_plays.append("=" * 70)
+
+        # 10-minute overtime period (600 seconds)
+        ot_time_remaining = 600
+        ot_possession = random.choice([team1, team2])  # Coin toss
+        ot_field_pos = 25
+        team1_ot_possessions = 0
+        team2_ot_possessions = 0
+
+        all_plays.append(f"\n{ot_possession.name} wins the coin toss!")
+
+        winner = None
+        while ot_time_remaining > 0 and winner is None:
+            ot_offense = ot_possession
+            ot_defense = team2 if ot_offense == team1 else team1
+
+            # Track possessions
+            if ot_offense == team1:
+                team1_ot_possessions += 1
+            else:
+                team2_ot_possessions += 1
+
+            score_diff_ot = ot_offense.score - ot_defense.score
+            score_before_ot = ot_offense.score
+
+            # Simulate OT drive
+            drive_plays, end_field_pos, time_used, yards_gained = simulate_drive(
+                ot_offense, ot_defense, ot_field_pos, 5, ot_time_remaining, score_diff_ot
+            )
+
+            all_plays.extend(drive_plays)
+            ot_time_remaining -= time_used
+
+            # Check if offense scored
+            if ot_offense.score > score_before_ot:
+                points_scored = ot_offense.score - score_before_ot
+
+                # First possession TD wins immediately
+                if team1_ot_possessions == 1 and team2_ot_possessions == 0 and points_scored >= 6:
+                    winner = ot_offense
+                    all_plays.append(f"\n{winner.name} wins with a touchdown on first possession!")
+                    break
+
+                # Both teams had possession - any score wins
+                elif team1_ot_possessions >= 1 and team2_ot_possessions >= 1:
+                    winner = ot_offense
+                    all_plays.append(f"\n{winner.name} wins in overtime!")
+                    break
+
+                # First possession FG - other team gets a chance
+                elif points_scored == 3 and (team1_ot_possessions + team2_ot_possessions) == 1:
+                    # Switch possession
+                    ot_possession = team2 if ot_possession == team1 else team1
+                    ot_field_pos = 25
+                    continue
+
+            # No score or time expired, switch possession
+            ot_possession = team2 if ot_possession == team1 else team1
+            ot_field_pos = 100 - end_field_pos
+            ot_field_pos = max(1, min(99, ot_field_pos))
+
+        # If still tied after OT (time expired)
+        if winner is None:
+            if team1.score > team2.score:
+                winner = team1
+            elif team2.score > team1.score:
+                winner = team2
+            else:
+                # Still tied - sudden death continues (pick random for simplicity)
+                winner = random.choice([team1, team2])
+                winner.score += 3
+                all_plays.append(f"\n{winner.name} wins in sudden death!")
 
     # Update team season stats (regular or playoff)
     if is_playoff:
