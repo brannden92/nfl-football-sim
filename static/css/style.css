@@ -1,0 +1,70 @@
+/* Custom styles for NFL Football Sim */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.card-header h4, .card-header h5 {
+    margin: 0;
+}
+
+/* Progress bars */
+.progress {
+    height: 20px;
+}
+
+/* Team stats table */
+.table-hover tbody tr:hover {
+    background-color: rgba(0,123,255,0.1);
+    cursor: pointer;
+}
+
+/* Score displays */
+.display-3 {
+    font-weight: bold;
+    color: #007bff;
+}
+
+/* Play-by-play styling */
+#playbyplay div {
+    padding: 2px 0;
+    line-height: 1.4;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .display-3 {
+        font-size: 2.5rem;
+    }
+
+    .display-6 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Status messages */
+.alert {
+    margin-top: 1rem;
+}
+
+/* Button states */
+.btn-lg {
+    padding: 0.75rem 2rem;
+    font-size: 1.25rem;
+}
+
+/* Division standings highlight */
+.table-success {
+    background-color: rgba(40,167,69,0.15);
+    font-weight: bold;
+}

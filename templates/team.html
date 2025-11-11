@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}{{ team.name }} - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">{{ team.name }}</h2>
+
+        <!-- Team Overview -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5>Season Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <h6>Record</h6>
+                        <p class="display-6">{{ team.wins }}-{{ team.losses }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Points For</h6>
+                        <p class="display-6">{{ team.points_for }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Points Against</h6>
+                        <p class="display-6">{{ team.points_against }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Point Differential</h6>
+                        <p class="display-6 {% if team.points_for - team.points_against > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%+d"|format(team.points_for - team.points_against) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quarterbacks -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5>Quarterbacks</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Comp</th>
+                            <th>Att</th>
+                            <th>Comp%</th>
+                            <th>Yards</th>
+                            <th>TD</th>
+                            <th>INT</th>
+                            <th>YPG</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for qb in qbs %}
+                        <tr>
+                            <td>{{ qb.name }}</td>
+                            <td>{{ qb.pass_completions }}</td>
+                            <td>{{ qb.pass_attempts }}</td>
+                            <td>{{ "%.1f"|format((qb.pass_completions / qb.pass_attempts * 100) if qb.pass_attempts > 0 else 0) }}%</td>
+                            <td>{{ qb.pass_yards }}</td>
+                            <td>{{ qb.pass_td }}</td>
+                            <td>{{ qb.interceptions }}</td>
+                            <td>{{ "%.1f"|format(qb.pass_yards / games_played if games_played > 0 else 0) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Running Backs -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5>Running Backs</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Att</th>
+                            <th>Yards</th>
+                            <th>TD</th>
+                            <th>YPC</th>
+                            <th>YPG</th>
+                            <th>Long</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rb in rbs %}
+                        <tr>
+                            <td>{{ rb.name }}</td>
+                            <td>{{ rb.rush_attempts }}</td>
+                            <td>{{ rb.rush_yards }}</td>
+                            <td>{{ rb.rush_td }}</td>
+                            <td>{{ "%.1f"|format(rb.rush_yards / rb.rush_attempts if rb.rush_attempts > 0 else 0) }}</td>
+                            <td>{{ "%.1f"|format(rb.rush_yards / games_played if games_played > 0 else 0) }}</td>
+                            <td>{{ rb.longest_rush }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Receivers -->
+        <div class="card mb-4">
+            <div class="card-header bg-warning">
+                <h5>Receivers</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Rec</th>
+                            <th>Targets</th>
+                            <th>Yards</th>
+                            <th>TD</th>
+                            <th>YPR</th>
+                            <th>YPG</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in receivers %}
+                        <tr>
+                            <td>{{ rec.name }}</td>
+                            <td>{{ rec.rec_catches }}</td>
+                            <td>{{ rec.rec_targets }}</td>
+                            <td>{{ rec.rec_yards }}</td>
+                            <td>{{ rec.rec_td }}</td>
+                            <td>{{ "%.1f"|format(rec.rec_yards / rec.rec_catches if rec.rec_catches > 0 else 0) }}</td>
+                            <td>{{ "%.1f"|format(rec.rec_yards / games_played if games_played > 0 else 0) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Defense -->
+        <div class="card mb-4">
+            <div class="card-header bg-danger text-white">
+                <h5>Defensive Leaders</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Tackles</th>
+                            <th>Sacks</th>
+                            <th>INT</th>
+                            <th>FF</th>
+                            <th>FR</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for def in defenders %}
+                        <tr>
+                            <td>{{ def.name }}</td>
+                            <td>{{ def.tackles }}</td>
+                            <td>{{ def.sacks }}</td>
+                            <td>{{ def.interceptions_def }}</td>
+                            <td>{{ def.forced_fumbles }}</td>
+                            <td>{{ def.fumble_recoveries }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

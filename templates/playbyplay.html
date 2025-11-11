@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Play-by-Play - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h4>Last Game - {{ user_team.name }}</h4>
+            </div>
+            <div class="card-body">
+                <div style="max-height: 800px; overflow-y: auto; font-family: monospace; font-size: 14px; white-space: pre-wrap;">
+                    {% for play in plays %}
+                    <div {% if 'TOUCHDOWN' in play or 'GOOD' in play %}class="text-success fw-bold"{% elif '---' in play or '===' in play %}class="text-primary fw-bold mt-2"{% endif %}>{{ play }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

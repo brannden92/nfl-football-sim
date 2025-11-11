@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Standings - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">League Standings</h2>
+
+        <!-- AFC -->
+        <h3 class="text-primary">AFC</h3>
+        <div class="row mb-4">
+            {% for division in ['North', 'South', 'East', 'West'] %}
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5>AFC {{ division }}</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>W</th>
+                                    <th>L</th>
+                                    <th>PF</th>
+                                    <th>PA</th>
+                                    <th>Diff</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for team in standings['AFC'][division] %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('team_stats', team_name=team.name) }}">
+                                            {{ team.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ team.wins }}</td>
+                                    <td>{{ team.losses }}</td>
+                                    <td>{{ team.points_for }}</td>
+                                    <td>{{ team.points_against }}</td>
+                                    <td class="{% if team.points_for - team.points_against > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ "%+d"|format(team.points_for - team.points_against) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- NFC -->
+        <h3 class="text-danger">NFC</h3>
+        <div class="row">
+            {% for division in ['North', 'South', 'East', 'West'] %}
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5>NFC {{ division }}</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>W</th>
+                                    <th>L</th>
+                                    <th>PF</th>
+                                    <th>PA</th>
+                                    <th>Diff</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for team in standings['NFC'][division] %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('team_stats', team_name=team.name) }}">
+                                            {{ team.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ team.wins }}</td>
+                                    <td>{{ team.losses }}</td>
+                                    <td>{{ team.points_for }}</td>
+                                    <td>{{ team.points_against }}</td>
+                                    <td class="{% if team.points_for - team.points_against > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ "%+d"|format(team.points_for - team.points_against) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

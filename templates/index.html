@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Left Column - Team Info -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h4>{{ user_team.name }}</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Record</h5>
+                        <p class="display-6">{{ user_team.wins }}-{{ user_team.losses }}</p>
+                        <p><strong>Points For:</strong> {{ user_team.points_for }}</p>
+                        <p><strong>Points Against:</strong> {{ user_team.points_against }}</p>
+                        <p><strong>Point Differential:</strong>
+                            <span class="{% if user_team.points_for - user_team.points_against > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ "%+d"|format(user_team.points_for - user_team.points_against) }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Team Ratings</h5>
+                        <div class="mb-2">
+                            <small>Pass Offense: {{ ratings.pass_off }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" style="width: {{ ratings.pass_off }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Rush Offense: {{ ratings.rush_off }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" style="width: {{ ratings.rush_off }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Pass Defense: {{ ratings.pass_def }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-warning" style="width: {{ ratings.pass_def }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Rush Defense: {{ ratings.rush_def }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-danger" style="width: {{ ratings.rush_def }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Next Game -->
+        {% if next_opponent %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5>Week {{ franchise.current_week }} - Next Game</h5>
+            </div>
+            <div class="card-body">
+                <h4>vs {{ next_opponent.name }}</h4>
+                <p>Record: {{ next_opponent.wins }}-{{ next_opponent.losses }}</p>
+                <a href="{{ url_for('simulate') }}" class="btn btn-primary btn-lg">Simulate Game</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <h5>Season Complete!</h5>
+            <p>The regular season has ended. Proceed to playoffs!</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column - Division Standings -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5>{{ user_team.league }} {{ user_team.division }}</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>W</th>
+                            <th>L</th>
+                            <th>PF</th>
+                            <th>PA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for team in div_teams %}
+                        <tr {% if team.name == user_team.name %}class="table-success"{% endif %}>
+                            <td>
+                                <a href="{{ url_for('team_stats', team_name=team.name) }}">
+                                    {{ team.name }}
+                                </a>
+                            </td>
+                            <td>{{ team.wins }}</td>
+                            <td>{{ team.losses }}</td>
+                            <td>{{ team.points_for }}</td>
+                            <td>{{ team.points_against }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

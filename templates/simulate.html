@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Simulate Game - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4>Week {{ franchise.current_week }}</h4>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-5">
+                        <h3>{{ user_team.name }}</h3>
+                        <p class="text-muted">{{ user_team.wins }}-{{ user_team.losses }}</p>
+                        <h1 id="user-score" class="display-3">0</h1>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-center justify-content-center">
+                        <h2>VS</h2>
+                    </div>
+                    <div class="col-md-5">
+                        <h3>{{ opponent.name }}</h3>
+                        <p class="text-muted">{{ opponent.wins }}-{{ opponent.losses }}</p>
+                        <h1 id="opponent-score" class="display-3">0</h1>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button id="simulate-btn" class="btn btn-success btn-lg" onclick="simulateGame()">
+                        Start Game
+                    </button>
+                    <div id="game-status" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opponent Preview -->
+        <div class="card mb-4" id="opponent-preview">
+            <div class="card-header bg-secondary text-white">
+                <h5>Opponent Preview - {{ opponent.name }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Team Ratings</h6>
+                        <div class="mb-2">
+                            <small>Pass Offense: {{ opponent_ratings.pass_off }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" style="width: {{ opponent_ratings.pass_off }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Rush Offense: {{ opponent_ratings.rush_off }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" style="width: {{ opponent_ratings.rush_off }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <small>Pass Defense: {{ opponent_ratings.pass_def }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-warning" style="width: {{ opponent_ratings.pass_def }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small>Rush Defense: {{ opponent_ratings.rush_def }}/99</small>
+                            <div class="progress">
+                                <div class="progress-bar bg-danger" style="width: {{ opponent_ratings.rush_def }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Play-by-Play -->
+        <div class="card" id="playbyplay-card" style="display: none;">
+            <div class="card-header bg-dark text-white">
+                <h5>Play-by-Play</h5>
+            </div>
+            <div class="card-body">
+                <div id="playbyplay" style="max-height: 600px; overflow-y: auto; font-family: monospace; font-size: 14px;">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let playIndex = 0;
+let plays = [];
+let intervalId = null;
+
+function simulateGame() {
+    const btn = document.getElementById('simulate-btn');
+    const status = document.getElementById('game-status');
+    const preview = document.getElementById('opponent-preview');
+    const playbyplayCard = document.getElementById('playbyplay-card');
+
+    btn.disabled = true;
+    btn.textContent = 'Simulating...';
+    status.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+
+    // Hide preview, show play-by-play
+    preview.style.display = 'none';
+    playbyplayCard.style.display = 'block';
+
+    // Call API to simulate game
+    fetch('/api/simulate-game', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        plays = data.plays;
+        playIndex = 0;
+
+        // Start displaying plays
+        intervalId = setInterval(displayNextPlay, 200);  // Show play every 200ms
+
+        status.textContent = 'Game in progress...';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        status.innerHTML = '<div class="alert alert-danger">Error simulating game</div>';
+        btn.disabled = false;
+        btn.textContent = 'Start Game';
+    });
+}
+
+function displayNextPlay() {
+    if (playIndex >= plays.length) {
+        clearInterval(intervalId);
+        document.getElementById('game-status').innerHTML = '<div class="alert alert-success">Game Complete!</div>';
+
+        // Enable button to continue
+        setTimeout(() => {
+            const btn = document.getElementById('simulate-btn');
+            btn.textContent = 'Return to Dashboard';
+            btn.disabled = false;
+            btn.onclick = () => window.location.href = "{{ url_for('index') }}";
+        }, 2000);
+
+        return;
+    }
+
+    const play = plays[playIndex];
+    const playDiv = document.getElementById('playbyplay');
+
+    // Check if this is a score update in the play text
+    const scoreMatch = play.match(/TOUCHDOWN!!!|GOOD!/);
+
+    // Add the play to the display
+    const playElement = document.createElement('div');
+    playElement.textContent = play;
+
+    if (scoreMatch) {
+        playElement.className = 'text-success fw-bold';
+    }
+
+    // Highlight drive headers
+    if (play.includes('---') || play.includes('===')) {
+        playElement.className = 'text-primary fw-bold mt-2';
+    }
+
+    playDiv.appendChild(playElement);
+
+    // Auto-scroll to bottom
+    playDiv.scrollTop = playDiv.scrollHeight;
+
+    // Update scores by parsing plays for scoring
+    updateScoresFromPlays();
+
+    playIndex++;
+}
+
+function updateScoresFromPlays() {
+    let userScore = 0;
+    let oppScore = 0;
+    const userTeam = "{{ user_team.name }}";
+
+    // Parse all plays up to current index for scores
+    for (let i = 0; i <= playIndex; i++) {
+        const play = plays[i];
+
+        if (play.includes(userTeam)) {
+            if (play.includes('TOUCHDOWN!!!')) {
+                userScore += 7;
+            } else if (play.includes('GOOD!') && play.includes('Field goal')) {
+                userScore += 3;
+            }
+        } else {
+            if (play.includes('TOUCHDOWN!!!')) {
+                oppScore += 7;
+            } else if (play.includes('GOOD!') && play.includes('Field goal')) {
+                oppScore += 3;
+            }
+        }
+    }
+
+    document.getElementById('user-score').textContent = userScore;
+    document.getElementById('opponent-score').textContent = oppScore;
+}
+</script>
+{% endblock %}
