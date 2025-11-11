@@ -8,7 +8,7 @@ from game import simulate_game, run_playoffs
 from utils import (
     create_new_league, save_franchise, load_franchise,
     print_team_summary, print_team_stats, print_last_game_stats,
-    view_standings
+    view_standings, print_opponent_preview
 )
 
 
@@ -41,17 +41,30 @@ def run_franchise(franchise):
             user_team = next(t for t in franchise.teams if t.name == franchise.user_team_name)
 
             print("1. Simulate Week")
-            print("2. View Last Game's Stats")
-            print("3. View Your Team Season Stats")
-            print("4. View Other Team Stats")
-            print("5. View Standings")
-            print("6. Save Franchise")
-            print("7. Quit")
+            print("2. View Opponent Preview")
+            print("3. View Last Game's Stats")
+            print("4. View Your Team Season Stats")
+            print("5. View Other Team Stats")
+            print("6. View Standings")
+            print("7. Save Franchise")
+            print("8. Quit")
             choice = input("> ").strip()
 
             if choice == "1":
-                # Simulate all games for the week (shuffle / pairing)
+                # Shuffle teams and find user's opponent
                 random.shuffle(franchise.teams)
+                user_team_idx = next(i for i, t in enumerate(franchise.teams) if t.name == franchise.user_team_name)
+                if user_team_idx % 2 == 0:
+                    opponent = franchise.teams[user_team_idx + 1]
+                else:
+                    opponent = franchise.teams[user_team_idx - 1]
+
+                # Show opponent preview before simulating
+                games_played = franchise.current_week - 1
+                print_opponent_preview(user_team, opponent, franchise.teams, games_played)
+                input("\nPress Enter to simulate the week...")
+
+                # Simulate all games for the week
                 for i in range(0, len(franchise.teams), 2):
                     simulate_game(franchise.teams[i], franchise.teams[i + 1], user_team=franchise.user_team_name)
 
@@ -60,15 +73,27 @@ def run_franchise(franchise):
                 franchise.current_week += 1
 
             elif choice == "2":
+                # Preview this week's opponent
+                random.shuffle(franchise.teams)
+                user_team_idx = next(i for i, t in enumerate(franchise.teams) if t.name == franchise.user_team_name)
+                if user_team_idx % 2 == 0:
+                    opponent = franchise.teams[user_team_idx + 1]
+                else:
+                    opponent = franchise.teams[user_team_idx - 1]
+
+                games_played = franchise.current_week - 1
+                print_opponent_preview(user_team, opponent, franchise.teams, games_played)
+
+            elif choice == "3":
                 # Last game's stats (per-player deltas)
                 print_last_game_stats(user_team)
 
-            elif choice == "3":
+            elif choice == "4":
                 # Season totals (accumulated)
                 games_played = franchise.current_week - 1
                 print_team_stats(user_team, games_played)
 
-            elif choice == "4":
+            elif choice == "5":
                 games_played = franchise.current_week - 1
                 for idx, t in enumerate(franchise.teams):
                     print(f"{idx + 1}. {t.name}")
@@ -79,13 +104,13 @@ def run_franchise(franchise):
                 except:
                     print("Invalid selection.")
 
-            elif choice == "5":
+            elif choice == "6":
                 view_standings(franchise.teams, user_team_name=franchise.user_team_name)
 
-            elif choice == "6":
+            elif choice == "7":
                 save_franchise(franchise)
 
-            elif choice == "7":
+            elif choice == "8":
                 save_franchise(franchise)
                 return
 

@@ -61,15 +61,15 @@ def run_playoffs(franchise):
     afc_wc_winners = []
     nfc_wc_winners = []
 
-    # AFC Wild Card (2 vs 7, 3 vs 6, 4 vs 5)
-    afc_wc_winners.append(simulate_game(afc_teams[1], afc_teams[6], franchise.user_team_name))
-    afc_wc_winners.append(simulate_game(afc_teams[2], afc_teams[5], franchise.user_team_name))
-    afc_wc_winners.append(simulate_game(afc_teams[3], afc_teams[4], franchise.user_team_name))
+    # AFC Wild Card (2 vs 7, 3 vs 6, 4 vs 5) - show all playoff scores
+    afc_wc_winners.append(simulate_game(afc_teams[1], afc_teams[6], user_team=None))
+    afc_wc_winners.append(simulate_game(afc_teams[2], afc_teams[5], user_team=None))
+    afc_wc_winners.append(simulate_game(afc_teams[3], afc_teams[4], user_team=None))
 
     # NFC Wild Card
-    nfc_wc_winners.append(simulate_game(nfc_teams[1], nfc_teams[6], franchise.user_team_name))
-    nfc_wc_winners.append(simulate_game(nfc_teams[2], nfc_teams[5], franchise.user_team_name))
-    nfc_wc_winners.append(simulate_game(nfc_teams[3], nfc_teams[4], franchise.user_team_name))
+    nfc_wc_winners.append(simulate_game(nfc_teams[1], nfc_teams[6], user_team=None))
+    nfc_wc_winners.append(simulate_game(nfc_teams[2], nfc_teams[5], user_team=None))
+    nfc_wc_winners.append(simulate_game(nfc_teams[3], nfc_teams[4], user_team=None))
 
     input("\nPress Enter to continue to Divisional Round...")
 
@@ -89,11 +89,11 @@ def run_playoffs(franchise):
     afc_div_winners = []
     nfc_div_winners = []
 
-    afc_div_winners.append(simulate_game(afc_remaining[0], afc_remaining[3], franchise.user_team_name))
-    afc_div_winners.append(simulate_game(afc_remaining[1], afc_remaining[2], franchise.user_team_name))
+    afc_div_winners.append(simulate_game(afc_remaining[0], afc_remaining[3], user_team=None))
+    afc_div_winners.append(simulate_game(afc_remaining[1], afc_remaining[2], user_team=None))
 
-    nfc_div_winners.append(simulate_game(nfc_remaining[0], nfc_remaining[3], franchise.user_team_name))
-    nfc_div_winners.append(simulate_game(nfc_remaining[1], nfc_remaining[2], franchise.user_team_name))
+    nfc_div_winners.append(simulate_game(nfc_remaining[0], nfc_remaining[3], user_team=None))
+    nfc_div_winners.append(simulate_game(nfc_remaining[1], nfc_remaining[2], user_team=None))
 
     input("\nPress Enter to continue to Conference Championships...")
 
@@ -102,8 +102,8 @@ def run_playoffs(franchise):
     print("CONFERENCE CHAMPIONSHIPS".center(70))
     print("=" * 70)
 
-    afc_champ = simulate_game(afc_div_winners[0], afc_div_winners[1], franchise.user_team_name)
-    nfc_champ = simulate_game(nfc_div_winners[0], nfc_div_winners[1], franchise.user_team_name)
+    afc_champ = simulate_game(afc_div_winners[0], afc_div_winners[1], user_team=None)
+    nfc_champ = simulate_game(nfc_div_winners[0], nfc_div_winners[1], user_team=None)
 
     input("\nPress Enter to continue to the SUPER BOWL...")
 
@@ -112,7 +112,7 @@ def run_playoffs(franchise):
     print("SUPER BOWL".center(70))
     print("=" * 70)
 
-    champion = simulate_game(afc_champ, nfc_champ, franchise.user_team_name)
+    champion = simulate_game(afc_champ, nfc_champ, user_team=None)
 
     print("\n" + "=" * 70)
     print(f"🏆 {champion.name} WIN THE SUPER BOWL! 🏆".center(70))

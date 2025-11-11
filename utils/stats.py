@@ -4,6 +4,96 @@ Statistics display utilities for the NFL Football Simulation
 from prettytable import PrettyTable
 
 
+def calculate_team_ratings(team, games_played):
+    """Calculate offensive and defensive ratings for a team"""
+    if games_played == 0:
+        return {
+            'pass_off': 50, 'rush_off': 50, 'pass_def': 50,
+            'rush_def': 50, 'special_teams': 50
+        }
+
+    # Calculate passing offense rating (yards per game and TD/INT ratio)
+    qb_stats = team.qb_starters[0] if team.qb_starters else None
+    if qb_stats and qb_stats.pass_attempts > 0:
+        pass_ypg = qb_stats.pass_yards / games_played
+        td_int_ratio = qb_stats.pass_td / max(1, qb_stats.interceptions)
+        pass_off = min(99, int(50 + (pass_ypg - 200) / 5 + td_int_ratio * 3))
+    else:
+        pass_off = 50
+
+    # Calculate rushing offense rating (yards per game and YPA)
+    total_rush_yards = sum(p.rush_yards for p in team.rb_starters + team.qb_starters)
+    total_rush_att = sum(p.rush_attempts for p in team.rb_starters + team.qb_starters)
+    if total_rush_att > 0:
+        rush_ypg = total_rush_yards / games_played
+        rush_ypa = total_rush_yards / total_rush_att
+        rush_off = min(99, int(50 + (rush_ypg - 100) / 3 + (rush_ypa - 4) * 5))
+    else:
+        rush_off = 50
+
+    # Calculate defensive ratings (inverse of points allowed)
+    ppg_allowed = team.points_against / games_played if games_played > 0 else 20
+    pass_def = min(99, int(90 - ppg_allowed))
+    rush_def = min(99, int(90 - ppg_allowed))
+
+    # Special teams rating (placeholder - could be based on field position, etc.)
+    special_teams = 50
+
+    return {
+        'pass_off': max(30, min(99, pass_off)),
+        'rush_off': max(30, min(99, rush_off)),
+        'pass_def': max(30, min(99, pass_def)),
+        'rush_def': max(30, min(99, rush_def)),
+        'special_teams': special_teams
+    }
+
+
+def print_opponent_preview(user_team, opponent, all_teams, games_played):
+    """Print a preview of the weekly opponent"""
+    print(f"\n{'=' * 70}")
+    print(f"WEEK {games_played + 1} OPPONENT PREVIEW".center(70))
+    print(f"{'=' * 70}")
+
+    # Basic team info
+    print(f"\n{opponent.name}")
+    print(f"{'-' * 70}")
+    print(f"Record: {opponent.wins}-{opponent.losses}")
+    print(f"Points For: {opponent.points_for} (PF)")
+    print(f"Points Against: {opponent.points_against} (PA)")
+    print(f"Point Differential: {opponent.points_for - opponent.points_against:+d} (PD)")
+
+    # Division standing
+    div_teams = [t for t in all_teams if t.league == opponent.league and t.division == opponent.division]
+    div_teams_sorted = sorted(div_teams, key=lambda t: (t.wins, t.points_for - t.points_against), reverse=True)
+    div_rank = div_teams_sorted.index(opponent) + 1
+    print(f"Division Standing: {div_rank}{get_ordinal(div_rank)} in {opponent.league} {opponent.division}")
+
+    # Top 3 rated players
+    print(f"\n{'Top Players:'}")
+    all_players = sorted(opponent.players, key=lambda p: p.skill, reverse=True)[:3]
+    for i, player in enumerate(all_players, 1):
+        print(f"  {i}. {player.name} ({player.position}) - Skill: {player.skill}")
+
+    # Team ratings
+    print(f"\n{'Team Ratings:'}")
+    ratings = calculate_team_ratings(opponent, games_played)
+    rating_labels = {
+        'pass_off': 'Pass Offense',
+        'rush_off': 'Rush Offense',
+        'pass_def': 'Pass Defense',
+        'rush_def': 'Rush Defense',
+        'special_teams': 'Special Teams'
+    }
+
+    for key, label in rating_labels.items():
+        rating = ratings[key]
+        bar_length = int(rating / 5)
+        bar = '█' * bar_length + '░' * (20 - bar_length)
+        print(f"  {label:15s}: {bar} {rating}/99")
+
+    print(f"{'=' * 70}\n")
+
+
 def get_ordinal(n):
     """Return ordinal suffix for a number (1st, 2nd, 3rd, etc.)"""
     if 11 <= n % 100 <= 13:
