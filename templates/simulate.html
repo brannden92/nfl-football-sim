@@ -278,6 +278,32 @@
                 </div>
             </div>
         </div>
+
+        <!-- Post-Game Player Stats -->
+        <div class="card mt-4" id="postgame-stats-card" style="display: none;">
+            <div class="card-header bg-success text-white">
+                <h5>Game Stats</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- User Team Stats -->
+                    <div class="col-md-6">
+                        <h6 class="text-center mb-3">{{ user_team.name }}</h6>
+                        <div style="max-height: 500px; overflow-y: auto; font-size: 13px;">
+                            <div id="user-team-stats"></div>
+                        </div>
+                    </div>
+
+                    <!-- Opponent Stats -->
+                    <div class="col-md-6">
+                        <h6 class="text-center mb-3">{{ opponent.name }}</h6>
+                        <div style="max-height: 500px; overflow-y: auto; font-size: 13px;">
+                            <div id="opponent-team-stats"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -435,6 +461,9 @@ function showGameResults(data) {
     // Hide speed controls
     document.getElementById('sim-speed-controls').style.display = 'none';
 
+    // Show post-game stats
+    displayPostGameStats(data);
+
     // Enable button to continue
     setTimeout(() => {
         const btn = document.getElementById('simulate-btn');
@@ -442,6 +471,98 @@ function showGameResults(data) {
         btn.disabled = false;
         btn.onclick = () => window.location.href = "{{ url_for('index') }}";
     }, 1000);
+}
+
+function displayPostGameStats(data) {
+    // Show the stats card
+    document.getElementById('postgame-stats-card').style.display = 'block';
+
+    // Fetch and display user team stats
+    fetch('/api/game-stats?team={{ user_team.name }}')
+        .then(response => response.json())
+        .then(stats => {
+            document.getElementById('user-team-stats').innerHTML = formatPlayerStats(stats);
+        });
+
+    // Fetch and display opponent stats
+    fetch('/api/game-stats?team={{ opponent.name }}')
+        .then(response => response.json())
+        .then(stats => {
+            document.getElementById('opponent-team-stats').innerHTML = formatPlayerStats(stats);
+        });
+}
+
+function formatPlayerStats(players) {
+    let html = '';
+
+    // Group players by position
+    const positions = ['QB', 'RB', 'WR', 'TE', 'DL', 'LB', 'CB', 'S', 'K', 'P'];
+
+    positions.forEach(pos => {
+        const posPlayers = players.filter(p => p.position === pos);
+        if (posPlayers.length === 0) return;
+
+        html += `<div class="mb-3"><strong class="text-primary">${pos}</strong><table class="table table-sm table-striped">`;
+
+        posPlayers.forEach(player => {
+            html += `<tr><td colspan="2" class="fw-bold">${player.name}</td></tr>`;
+
+            // Passing stats
+            if (player.pass_attempts > 0) {
+                const comp_pct = ((player.pass_completions / player.pass_attempts) * 100).toFixed(1);
+                html += `<tr><td class="ps-3">Passing:</td><td>${player.pass_completions}/${player.pass_attempts} (${comp_pct}%), ${player.pass_yards} yds, ${player.pass_td} TD, ${player.interceptions} INT</td></tr>`;
+            }
+
+            // Rushing stats
+            if (player.rush_attempts > 0) {
+                const rush_avg = (player.rush_yards / player.rush_attempts).toFixed(1);
+                html += `<tr><td class="ps-3">Rushing:</td><td>${player.rush_attempts} att, ${player.rush_yards} yds (${rush_avg} avg), ${player.rush_td} TD</td></tr>`;
+            }
+
+            // Receiving stats
+            if (player.rec_targets > 0) {
+                html += `<tr><td class="ps-3">Receiving:</td><td>${player.rec_catches}/${player.rec_targets} tgt, ${player.rec_yards} yds, ${player.rec_td} TD</td></tr>`;
+            }
+
+            // Defensive stats
+            if (player.tackles > 0 || player.sacks > 0) {
+                html += `<tr><td class="ps-3">Defense:</td><td>${player.tackles} tkl`;
+                if (player.sacks > 0) html += `, ${player.sacks} sck`;
+                if (player.interceptions_def > 0) html += `, ${player.interceptions_def} int`;
+                if (player.pass_deflections > 0) html += `, ${player.pass_deflections} pd`;
+                if (player.forced_fumbles > 0) html += `, ${player.forced_fumbles} ff`;
+                html += `</td></tr>`;
+            }
+
+            // Kicker stats
+            if (player.fg_attempts > 0 || player.xp_attempts > 0) {
+                html += `<tr><td class="ps-3">Kicking:</td><td>`;
+                if (player.fg_attempts > 0) {
+                    const fg_pct = ((player.fg_made / player.fg_attempts) * 100).toFixed(0);
+                    html += `FG: ${player.fg_made}/${player.fg_attempts} (${fg_pct}%)`;
+                    if (player.longest_fg > 0) html += ` Long: ${player.longest_fg}`;
+                }
+                if (player.xp_attempts > 0) {
+                    if (player.fg_attempts > 0) html += `, `;
+                    html += `XP: ${player.xp_made}/${player.xp_attempts}`;
+                }
+                html += `</td></tr>`;
+            }
+
+            // Punter stats
+            if (player.punt_attempts > 0) {
+                const punt_avg = (player.punt_yards / player.punt_attempts).toFixed(1);
+                html += `<tr><td class="ps-3">Punting:</td><td>${player.punt_attempts} punts, ${player.punt_yards} yds (${punt_avg} avg)`;
+                if (player.inside_20 > 0) html += `, ${player.inside_20} inside 20`;
+                if (player.longest_punt > 0) html += `, Long: ${player.longest_punt}`;
+                html += `</td></tr>`;
+            }
+        });
+
+        html += '</table></div>';
+    });
+
+    return html;
 }
 
 function displayNextPlay() {

@@ -740,6 +740,60 @@ def league_schedule():
                          week_games=week_games)
 
 
+@app.route('/api/game-stats')
+def api_game_stats():
+    """API endpoint to get player stats for a specific team"""
+    franchise = get_franchise()
+    if not franchise:
+        return jsonify({'error': 'No franchise found'}), 404
+
+    team_name = request.args.get('team')
+    if not team_name:
+        return jsonify({'error': 'Team name required'}), 400
+
+    # Find the team
+    team = next((t for t in franchise.teams if t.name == team_name), None)
+    if not team:
+        return jsonify({'error': 'Team not found'}), 404
+
+    # Collect player stats
+    player_stats = []
+    for player in team.players:
+        player_data = {
+            'name': player.name,
+            'position': player.position,
+            'pass_attempts': player.pass_attempts,
+            'pass_completions': player.pass_completions,
+            'pass_yards': player.pass_yards,
+            'pass_td': player.pass_td,
+            'interceptions': player.interceptions,
+            'rush_attempts': player.rush_attempts,
+            'rush_yards': player.rush_yards,
+            'rush_td': player.rush_td,
+            'rec_targets': player.rec_targets,
+            'rec_catches': player.rec_catches,
+            'rec_yards': player.rec_yards,
+            'rec_td': player.rec_td,
+            'tackles': player.tackles,
+            'sacks': player.sacks,
+            'interceptions_def': player.interceptions_def,
+            'pass_deflections': player.pass_deflections,
+            'forced_fumbles': player.forced_fumbles,
+            'fg_attempts': player.fg_attempts,
+            'fg_made': player.fg_made,
+            'longest_fg': player.longest_fg,
+            'xp_attempts': player.xp_attempts,
+            'xp_made': player.xp_made,
+            'punt_attempts': player.punt_attempts,
+            'punt_yards': player.punt_yards,
+            'longest_punt': player.longest_punt,
+            'inside_20': player.inside_20
+        }
+        player_stats.append(player_data)
+
+    return jsonify(player_stats)
+
+
 @app.route('/league/playoffs')
 def league_playoffs():
     """Playoffs bracket page"""
