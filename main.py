@@ -8,7 +8,7 @@ from game import simulate_game, run_playoffs
 from utils import (
     create_new_league, save_franchise, load_franchise,
     print_team_summary, print_team_stats, print_last_game_stats,
-    view_standings, print_opponent_preview
+    view_standings, print_opponent_preview, print_career_stats
 )
 
 
@@ -44,10 +44,11 @@ def run_franchise(franchise):
             print("2. View Opponent Preview")
             print("3. View Last Game's Stats")
             print("4. View Your Team Season Stats")
-            print("5. View Other Team Stats")
-            print("6. View Standings")
-            print("7. Save Franchise")
-            print("8. Quit")
+            print("5. View Career Stats")
+            print("6. View Other Team Stats")
+            print("7. View Standings")
+            print("8. Save Franchise")
+            print("9. Quit")
             choice = input("> ").strip()
 
             if choice == "1":
@@ -94,6 +95,10 @@ def run_franchise(franchise):
                 print_team_stats(user_team, games_played)
 
             elif choice == "5":
+                # Career stats
+                print_career_stats(user_team)
+
+            elif choice == "6":
                 games_played = franchise.current_week - 1
                 for idx, t in enumerate(franchise.teams):
                     print(f"{idx + 1}. {t.name}")
@@ -104,13 +109,13 @@ def run_franchise(franchise):
                 except:
                     print("Invalid selection.")
 
-            elif choice == "6":
+            elif choice == "7":
                 view_standings(franchise.teams, user_team_name=franchise.user_team_name)
 
-            elif choice == "7":
+            elif choice == "8":
                 save_franchise(franchise)
 
-            elif choice == "8":
+            elif choice == "9":
                 save_franchise(franchise)
                 return
 
@@ -130,6 +135,8 @@ def run_franchise(franchise):
         print("\n=== OFF-SEASON ===")
         for team in franchise.teams:
             for player in team.players:
+                # Accumulate season stats into career stats before resetting
+                player.accumulate_career_stats()
                 player.progress()
                 if player.should_retire() and not player.retired:
                     player.retired = True

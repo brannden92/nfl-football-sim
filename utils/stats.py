@@ -279,3 +279,79 @@ def print_last_game_stats(team):
             sd.get("pass_deflections", 0)
         ])
     print(table)
+
+
+def print_career_stats(team):
+    """Print career stats for team's players"""
+    print(f"\n=== CAREER STATS: {team.name} ===")
+
+    # Career passing leaders
+    print("\n=== Career Passing Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Name", "Years", "Comp", "Att", "Comp%", "Yards", "TD", "INT", "Long"]
+    qbs = [p for p in team.players if p.position == "QB" and p.career_stats.get("pass_attempts", 0) > 0]
+    qbs.sort(key=lambda x: x.career_stats.get("pass_yards", 0), reverse=True)
+
+    for qb in qbs[:5]:  # Top 5
+        cs = qb.career_stats
+        att = cs.get("pass_attempts", 0)
+        comp = cs.get("pass_completions", 0)
+        comp_pct = round(100 * comp / att, 1) if att > 0 else 0
+        table.add_row([
+            qb.name, qb.years_played, comp, att, comp_pct,
+            cs.get("pass_yards", 0), cs.get("pass_td", 0),
+            cs.get("interceptions", 0), cs.get("longest_pass", 0)
+        ])
+    print(table)
+
+    # Career rushing leaders
+    print("\n=== Career Rushing Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Name", "Years", "Att", "Yards", "TD", "Y/A", "Long"]
+    rushers = [p for p in team.players if p.career_stats.get("rush_attempts", 0) > 0]
+    rushers.sort(key=lambda x: x.career_stats.get("rush_yards", 0), reverse=True)
+
+    for rusher in rushers[:5]:  # Top 5
+        cs = rusher.career_stats
+        att = cs.get("rush_attempts", 0)
+        yards = cs.get("rush_yards", 0)
+        ya = round(yards / att, 1) if att > 0 else 0
+        table.add_row([
+            rusher.name, rusher.years_played, att, yards,
+            cs.get("rush_td", 0), ya, cs.get("longest_rush", 0)
+        ])
+    print(table)
+
+    # Career receiving leaders
+    print("\n=== Career Receiving Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Name", "Years", "Rec", "Yards", "TD", "Y/R", "Long"]
+    receivers = [p for p in team.players if p.career_stats.get("rec_catches", 0) > 0]
+    receivers.sort(key=lambda x: x.career_stats.get("rec_yards", 0), reverse=True)
+
+    for receiver in receivers[:5]:  # Top 5
+        cs = receiver.career_stats
+        catches = cs.get("rec_catches", 0)
+        yards = cs.get("rec_yards", 0)
+        ypr = round(yards / catches, 1) if catches > 0 else 0
+        table.add_row([
+            receiver.name, receiver.years_played, catches, yards,
+            cs.get("rec_td", 0), ypr, cs.get("longest_rec", 0)
+        ])
+    print(table)
+
+    # Career defensive leaders
+    print("\n=== Career Defensive Leaders ===")
+    table = PrettyTable()
+    table.field_names = ["Name", "Years", "Tackles", "Sacks", "INT", "FF", "FR"]
+    defenders = [p for p in team.players if p.career_stats.get("tackles", 0) > 0]
+    defenders.sort(key=lambda x: x.career_stats.get("tackles", 0) + x.career_stats.get("sacks", 0), reverse=True)
+
+    for defender in defenders[:5]:  # Top 5
+        cs = defender.career_stats
+        table.add_row([
+            defender.name, defender.years_played, cs.get("tackles", 0),
+            cs.get("sacks", 0), cs.get("interceptions_def", 0),
+            cs.get("forced_fumbles", 0), cs.get("fumble_recoveries", 0)
+        ])
+    print(table)

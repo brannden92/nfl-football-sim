@@ -47,6 +47,17 @@ class Player:
         self.fumble_recoveries = 0
         self.pass_deflections = 0
 
+        # Career stats (accumulated across all seasons)
+        self.career_stats = {
+            "pass_attempts": 0, "pass_completions": 0, "pass_yards": 0, "pass_td": 0,
+            "interceptions": 0, "longest_pass": 0, "sacks_taken": 0,
+            "rush_attempts": 0, "rush_yards": 0, "rush_td": 0, "longest_rush": 0, "fumbles": 0,
+            "rec_targets": 0, "rec_catches": 0, "rec_yards": 0, "rec_td": 0,
+            "drops": 0, "longest_rec": 0,
+            "tackles": 0, "sacks": 0, "qb_pressure": 0, "interceptions_def": 0,
+            "forced_fumbles": 0, "fumble_recoveries": 0, "pass_deflections": 0
+        }
+
         self.reset_stats()
 
     def reset_stats(self):
@@ -80,3 +91,24 @@ class Player:
     def should_retire(self):
         """Determine if player should retire based on age"""
         return self.age >= 35
+
+    def accumulate_career_stats(self):
+        """Add current season stats to career totals"""
+        stat_attrs = [
+            "pass_attempts", "pass_completions", "pass_yards", "pass_td", "interceptions",
+            "sacks_taken", "rush_attempts", "rush_yards", "rush_td", "fumbles",
+            "rec_targets", "rec_catches", "rec_yards", "rec_td", "drops",
+            "tackles", "sacks", "qb_pressure", "interceptions_def",
+            "forced_fumbles", "fumble_recoveries", "pass_deflections"
+        ]
+
+        for attr in stat_attrs:
+            self.career_stats[attr] += getattr(self, attr, 0)
+
+        # Handle longest stats (take the max)
+        if self.longest_pass > self.career_stats.get("longest_pass", 0):
+            self.career_stats["longest_pass"] = self.longest_pass
+        if self.longest_rush > self.career_stats.get("longest_rush", 0):
+            self.career_stats["longest_rush"] = self.longest_rush
+        if self.longest_rec > self.career_stats.get("longest_rec", 0):
+            self.career_stats["longest_rec"] = self.longest_rec
