@@ -17,6 +17,14 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
     rb = random.choice(offense.rb_starters)
     def_player = random.choice(defense.defense_starters)
 
+    # Calculate offensive line ratings
+    ol_pass_blocking = 50  # Default if no OL
+    ol_run_blocking = 50
+    if offense.ol_starters:
+        # Use pass_blocking or fall back to skill if attribute doesn't exist
+        ol_pass_blocking = sum(getattr(ol, 'pass_blocking', ol.skill) for ol in offense.ol_starters) / len(offense.ol_starters)
+        ol_run_blocking = sum(getattr(ol, 'run_blocking', ol.skill) for ol in offense.ol_starters) / len(offense.ol_starters)
+
     # Choose play type based on down and distance
     if down == 3 and distance > 7:
         play_type = random.choices(["pass", "run"], weights=[0.75, 0.25])[0]
@@ -43,10 +51,17 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
 
         receiver.rec_targets += 1
 
-        success_rate = 0.63 + (qb.skill - def_player.skill) / 200
+        # Pass blocking affects success rate and sack rate
+        blocking_factor = (ol_pass_blocking - 70) / 400  # -0.05 to +0.07 roughly
+        success_rate = 0.63 + (qb.skill - def_player.skill) / 200 + blocking_factor
+
+        # Sack rate affected by pass blocking (better blocking = fewer sacks)
+        base_sack_rate = 0.08
+        sack_modifier = (70 - ol_pass_blocking) / 1000  # Better blocking = negative modifier
+        sack_rate = max(0.02, min(0.15, base_sack_rate + sack_modifier))
 
         # Check for sack OR QB scramble
-        if random.random() < 0.08:
+        if random.random() < sack_rate:
             if random.random() < 0.60:
                 # Sack
                 yards_gained = -random.randint(3, 8)
@@ -131,12 +146,27 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
     else:  # Run play
         rb.rush_attempts += 1
 
-        # Check for big run (5% chance)
-        is_big_run = random.random() < 0.05
+        # Run blocking affects yards gained and big run chance
+        blocking_bonus = int((ol_run_blocking - 70) / 10)  # -2 to +3 roughly
+
+        # Better blocking increases big run chance
+        big_run_chance = 0.05 + (ol_run_blocking - 70) / 1000
+        is_big_run = random.random() < max(0.02, min(0.10, big_run_chance))
+
         if is_big_run:
             yards_gained = random.randint(15, 80)
         else:
-            yards_gained = random.randint(-2, 10) + (rb.skill - def_player.skill) // 20
+            # Bad blocking makes negative yards more likely
+            if ol_run_blocking < 60:
+                base_yards = random.randint(-2, 8)  # More negative yards possible
+            elif ol_run_blocking < 70:
+                base_yards = random.randint(-1, 9)  # Slightly worse
+            elif ol_run_blocking > 80:
+                base_yards = random.randint(0, 12)  # No negative yards, better max
+            else:
+                base_yards = random.randint(-2, 10)  # Normal distribution
+
+            yards_gained = base_yards + (rb.skill - def_player.skill) // 20 + blocking_bonus
 
         rb.rush_yards += yards_gained
 

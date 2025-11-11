@@ -13,6 +13,7 @@ class Team:
         self.rb_starters = []
         self.wr_starters = []
         self.te_starters = []
+        self.ol_starters = []  # Offensive line
         self.defense_starters = []
         self.score = 0
         self.wins = 0

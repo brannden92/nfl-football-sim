@@ -61,6 +61,7 @@ def create_new_league():
                 team.rb_starters = [p for p in team.players if p.position == "RB"][:2]
                 team.wr_starters = [p for p in team.players if p.position == "WR"][:2]
                 team.te_starters = [p for p in team.players if p.position == "TE"][:2]
+                team.ol_starters = [p for p in team.players if p.position in ["OL", "OT", "OG", "C"]][:5]
                 team.defense_starters = [p for p in team.players if p.position in ["DL", "LB", "CB", "S"]]
                 team.league = league_name
                 team.division = div_name

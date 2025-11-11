@@ -32,8 +32,8 @@ def get_scout_indicator(scout_points):
 def generate_draft_prospects(num_prospects=350):
     """Generate draft prospects with varying skills and positions"""
     prospects = []
-    positions = ['QB', 'RB', 'WR', 'TE', 'DEF']
-    position_weights = [0.10, 0.20, 0.25, 0.10, 0.35]  # More DEF and skill positions
+    positions = ['QB', 'RB', 'WR', 'TE', 'OL', 'DEF']
+    position_weights = [0.08, 0.18, 0.22, 0.08, 0.14, 0.30]  # Include OL prospects
 
     first_names = [
         "James", "John", "Michael", "David", "Chris", "Matt", "Josh", "Tom",
@@ -248,6 +248,8 @@ def draft_player(franchise, team, prospect):
         team.wr_starters.append(prospect)
     elif prospect.position == "TE":
         team.te_starters.append(prospect)
+    elif prospect.position == "OL":
+        team.ol_starters.append(prospect)
     elif prospect.position == "DEF":
         team.defense_starters.append(prospect)
 
