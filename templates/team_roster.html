@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Player List - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4>{{ user_team.name }} - Player List</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h5>Coming Soon</h5>
+                    <p>This page will display all players on your roster with sortable columns.</p>
+                    <p><strong>Planned Features:</strong></p>
+                    <ul>
+                        <li>View all players organized by position</li>
+                        <li>Toggle between player attributes (ratings) and statistics (performance)</li>
+                        <li>Sort by any column (name, position, rating, stats)</li>
+                        <li>Filter by position groups (QB, RB, WR, TE, OL, DL, LB, DB)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

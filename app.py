@@ -147,16 +147,37 @@ def api_simulate_game():
         return jsonify({'error': 'No franchise found'}), 404
 
     user_team = get_user_team(franchise)
+    fast_sim = request.json.get('fast_sim', False) if request.json else False
 
     # Get opponent
     available = [t for t in franchise.teams if t != user_team and t.league == user_team.league]
     opponent = available[(franchise.current_week - 1) % len(available)]
 
-    # Simulate the game
+    # Simulate the user's game
     winner = simulate_game(user_team, opponent, user_team=user_team.name)
 
-    # Get play-by-play
-    plays = user_team.last_game_plays
+    # Get play-by-play for user's game
+    plays = user_team.last_game_plays if not fast_sim else []
+
+    # Simulate all other games in the league for this week
+    other_games = []
+    simulated_teams = {user_team.name, opponent.name}
+
+    for i in range(0, len(franchise.teams), 2):
+        team1 = franchise.teams[i]
+        team2 = franchise.teams[i + 1] if i + 1 < len(franchise.teams) else None
+
+        if team2 and team1.name not in simulated_teams and team2.name not in simulated_teams:
+            # Simulate this game
+            game_winner = simulate_game(team1, team2, user_team=None)
+            other_games.append({
+                'team1': team1.name,
+                'team1_score': team1.score,
+                'team2': team2.name,
+                'team2_score': team2.score
+            })
+            simulated_teams.add(team1.name)
+            simulated_teams.add(team2.name)
 
     # Advance week
     franchise.current_week += 1
@@ -169,7 +190,9 @@ def api_simulate_game():
         'user_score': user_team.score,
         'opponent_score': opponent.score,
         'winner': winner.name,
-        'current_week': franchise.current_week
+        'current_week': franchise.current_week,
+        'other_games': other_games,
+        'fast_sim': fast_sim
     })
 
 
@@ -249,6 +272,82 @@ def reset():
     if os.path.exists(FRANCHISE_FILE):
         os.remove(FRANCHISE_FILE)
     return redirect(url_for('setup'))
+
+
+# TEAM Routes
+@app.route('/team/roster')
+def team_roster():
+    """Player list page"""
+    franchise = get_franchise()
+    if not franchise:
+        return redirect(url_for('setup'))
+    user_team = get_user_team(franchise)
+    # TODO: Implement player list with sortable table
+    return render_template('team_roster.html', franchise=franchise, user_team=user_team)
+
+
+@app.route('/team/schedule')
+def team_schedule():
+    """Team schedule page"""
+    franchise = get_franchise()
+    if not franchise:
+        return redirect(url_for('setup'))
+    user_team = get_user_team(franchise)
+    # TODO: Implement schedule view
+    return render_template('team_schedule.html', franchise=franchise, user_team=user_team)
+
+
+@app.route('/team/history')
+def team_history():
+    """Team history page"""
+    franchise = get_franchise()
+    if not franchise:
+        return redirect(url_for('setup'))
+    user_team = get_user_team(franchise)
+    # TODO: Implement franchise history
+    return render_template('team_history.html', franchise=franchise, user_team=user_team)
+
+
+# LEAGUE Routes
+@app.route('/league/scores')
+def scores():
+    """League scores page"""
+    franchise = get_franchise()
+    if not franchise:
+        return redirect(url_for('setup'))
+    # TODO: Implement week selector and scores
+    return render_template('scores.html', franchise=franchise)
+
+
+@app.route('/league/stats')
+def league_stats():
+    """League statistics page"""
+    franchise = get_franchise()
+    if not franchise:
+        return redirect(url_for('setup'))
+    # TODO: Implement league-wide player stats
+    return render_template('league_stats.html', franchise=franchise)
+
+
+@app.route('/league/draft')
+def draft_room():
+    """Draft room page"""
+    franchise = get_franchise()
+    if not franchise:
+        return redirect(url_for('setup'))
+    # TODO: Implement draft class viewer with scouting
+    return render_template('draft_room.html', franchise=franchise)
+
+
+# SETTINGS Route
+@app.route('/settings')
+def settings():
+    """Settings page"""
+    franchise = get_franchise()
+    if not franchise:
+        return redirect(url_for('setup'))
+    # TODO: Implement game settings
+    return render_template('settings.html', franchise=franchise)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4>{{ user_team.name }} - Schedule</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h5>Coming Soon</h5>
+                    <p>This page will display your team's full season schedule.</p>
+                    <p><strong>Planned Features:</strong></p>
+                    <ul>
+                        <li>View all {{ franchise.current_season }} season games (17 weeks)</li>
+                        <li>See results for completed games (score, opponent)</li>
+                        <li>Preview upcoming matchups</li>
+                        <li>Quick link to simulate next game</li>
+                        <li>Bye week indicator</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

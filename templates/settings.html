@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - NFL Football Sim{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4>Game Settings</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h5>Coming Soon</h5>
+                    <p>This page will allow you to customize various game settings.</p>
+                    <p><strong>Planned Features:</strong></p>
+                    <ul>
+                        <li>Difficulty settings (simulation sliders)</li>
+                        <li>Season length (17 games vs custom)</li>
+                        <li>Playoff format options</li>
+                        <li>Player progression settings</li>
+                        <li>Injury frequency</li>
+                        <li>Trade difficulty</li>
+                        <li>Draft class quality variance</li>
+                        <li>Auto-save preferences</li>
+                        <li>Interface customization (theme, colors)</li>
+                    </ul>
+                </div>
+
+                <div class="mt-4">
+                    <h5>Current Franchise Info</h5>
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td><strong>Your Team:</strong></td>
+                                <td>{{ franchise.user_team_name }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Current Season:</strong></td>
+                                <td>{{ franchise.current_season }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Current Week:</strong></td>
+                                <td>{{ franchise.current_week }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-3">
+                    <a href="{{ url_for('reset') }}" class="btn btn-danger" onclick="return confirm('Are you sure you want to reset your franchise? This cannot be undone!')">
+                        Reset Franchise
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
