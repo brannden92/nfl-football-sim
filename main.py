@@ -8,7 +8,8 @@ from game import simulate_game, run_playoffs
 from utils import (
     create_new_league, save_franchise, load_franchise,
     print_team_summary, print_team_stats, print_last_game_stats,
-    view_standings, print_opponent_preview, print_career_stats
+    view_standings, print_opponent_preview, print_career_stats,
+    view_last_game_plays, generate_draft_prospects, run_scouting, run_draft
 )
 
 
@@ -43,12 +44,13 @@ def run_franchise(franchise):
             print("1. Simulate Week")
             print("2. View Opponent Preview")
             print("3. View Last Game's Stats")
-            print("4. View Your Team Season Stats")
-            print("5. View Career Stats")
-            print("6. View Other Team Stats")
-            print("7. View Standings")
-            print("8. Save Franchise")
-            print("9. Quit")
+            print("4. View Last Game Play-by-Play")
+            print("5. View Your Team Season Stats")
+            print("6. View Career Stats")
+            print("7. View Other Team Stats")
+            print("8. View Standings")
+            print("9. Save Franchise")
+            print("10. Quit")
             choice = input("> ").strip()
 
             if choice == "1":
@@ -90,15 +92,19 @@ def run_franchise(franchise):
                 print_last_game_stats(user_team)
 
             elif choice == "4":
+                # Last game play-by-play
+                view_last_game_plays(user_team)
+
+            elif choice == "5":
                 # Season totals (accumulated)
                 games_played = franchise.current_week - 1
                 print_team_stats(user_team, games_played)
 
-            elif choice == "5":
+            elif choice == "6":
                 # Career stats
                 print_career_stats(user_team)
 
-            elif choice == "6":
+            elif choice == "7":
                 games_played = franchise.current_week - 1
                 for idx, t in enumerate(franchise.teams):
                     print(f"{idx + 1}. {t.name}")
@@ -109,13 +115,13 @@ def run_franchise(franchise):
                 except:
                     print("Invalid selection.")
 
-            elif choice == "7":
+            elif choice == "8":
                 view_standings(franchise.teams, user_team_name=franchise.user_team_name)
 
-            elif choice == "8":
+            elif choice == "9":
                 save_franchise(franchise)
 
-            elif choice == "9":
+            elif choice == "10":
                 save_franchise(franchise)
                 return
 
@@ -131,8 +137,36 @@ def run_franchise(franchise):
         input("\nPress Enter to start the playoffs...")
         champion = run_playoffs(franchise)
 
-        # Progress players (aging, skill changes, retirements)
+        # Off-season activities
         print("\n=== OFF-SEASON ===")
+
+        # Generate draft prospects if not already generated
+        if not franchise.draft_prospects:
+            print("\nGenerating draft prospects...")
+            franchise.draft_prospects = generate_draft_prospects(num_prospects=350)
+            franchise.scouting_points = 100
+            franchise.scouting_investment = {}
+            print(f"✓ {len(franchise.draft_prospects)} prospects available for the draft")
+
+        # Scouting phase
+        print("\n=== SCOUTING PHASE ===")
+        print("Scout draft prospects to get better information before the draft.")
+        print("You have 100 scouting points to invest.")
+        input("Press Enter to enter scouting phase...")
+        run_scouting(franchise)
+
+        # Draft phase
+        print("\n=== DRAFT PHASE ===")
+        input("Press Enter to begin the draft...")
+        run_draft(franchise)
+
+        # Reset draft for next season
+        franchise.draft_prospects = []
+        franchise.scouting_points = 100
+        franchise.scouting_investment = {}
+
+        # Progress players (aging, skill changes, retirements)
+        print("\n=== PLAYER PROGRESSION ===")
         for team in franchise.teams:
             for player in team.players:
                 # Accumulate season stats into career stats before resetting

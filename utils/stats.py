@@ -355,3 +355,19 @@ def print_career_stats(team):
             cs.get("forced_fumbles", 0), cs.get("fumble_recoveries", 0)
         ])
     print(table)
+
+
+def view_last_game_plays(team):
+    """Display play-by-play from the last game"""
+    if not hasattr(team, 'last_game_plays') or not team.last_game_plays:
+        print("\nNo play-by-play data available for the last game.")
+        return
+
+    print(f"\n{'=' * 70}")
+    print(f"LAST GAME PLAY-BY-PLAY".center(70))
+    print(f"{'=' * 70}")
+
+    for play in team.last_game_plays:
+        print(play)
+
+    print(f"{'=' * 70}\n")

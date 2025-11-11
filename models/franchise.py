@@ -11,3 +11,8 @@ class Franchise:
         self.user_team_name = user_team_name
         self.current_season = current_season
         self.current_week = current_week
+
+        # Draft and scouting system
+        self.scouting_points = 100  # Points to invest in scouting draft prospects
+        self.draft_prospects = []   # List of draft prospect players
+        self.scouting_investment = {}  # Dict mapping prospect name to scout points invested

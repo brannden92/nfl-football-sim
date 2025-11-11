@@ -22,6 +22,7 @@ class Team:
         self.league = None
         self.division = None
         self.last_game_stats = {}
+        self.last_game_plays = []  # Play-by-play descriptions from last game
 
     def reset_score(self):
         """Reset the team's current score to 0"""

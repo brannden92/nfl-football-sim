@@ -5,8 +5,14 @@ import random
 from config import STAT_ATTRS
 
 
+def get_down_distance_str(down, distance):
+    """Format down and distance string for play-by-play"""
+    down_names = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
+    return f"{down_names.get(down, str(down))} & {distance}"
+
+
 def simulate_play(offense, defense, down, distance, yards_to_go):
-    """Simulate a single play and return results"""
+    """Simulate a single play and return results with play description"""
     qb = offense.qb_starters[0]
     rb = random.choice(offense.rb_starters)
     def_player = random.choice(defense.defense_starters)
@@ -22,6 +28,7 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
     clock_stops = False
     time_elapsed = 0
     yards_gained = 0
+    play_description = ""
 
     if play_type == "pass":
         qb.pass_attempts += 1
@@ -45,6 +52,7 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
                 yards_gained = -random.randint(3, 8)
                 qb.sacks_taken += 1
                 time_elapsed = random.randint(4, 8)
+                play_description = f"{qb.name} sacked by {def_player.name} for {abs(yards_gained)} yard loss"
             else:
                 # QB Scramble
                 yards_gained = random.randint(2, 12)
@@ -59,7 +67,10 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
                     qb.fumbles += 1
                     time_elapsed = random.randint(6, 10)
                     clock_stops = True
-                    return yards_gained, time_elapsed, clock_stops, True  # Turnover
+                    play_description = f"{qb.name} scrambles for {yards_gained} yards, FUMBLES! Recovered by {def_player.name}"
+                    return yards_gained, time_elapsed, clock_stops, True, play_description  # Turnover
+                else:
+                    play_description = f"{qb.name} scrambles for {yards_gained} yards"
 
         # Check for interception
         elif random.random() < 0.025:
@@ -67,7 +78,8 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
             def_player.interceptions_def += 1
             time_elapsed = random.randint(5, 12)
             clock_stops = True
-            return yards_gained, time_elapsed, clock_stops, True  # Turnover
+            play_description = f"{qb.name} pass INTERCEPTED by {def_player.name}!"
+            return yards_gained, time_elapsed, clock_stops, True, play_description  # Turnover
 
         # Incomplete pass
         elif random.random() > success_rate:
@@ -78,11 +90,15 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
             # Check if it was a drop
             if random.random() < 0.15:
                 receiver.drops += 1
+                play_description = f"{qb.name} pass to {receiver.name} incomplete (DROPPED)"
+            else:
+                play_description = f"{qb.name} pass to {receiver.name} incomplete"
 
         # Completed pass
         else:
             # Check for big play (8% chance)
-            if random.random() < 0.08:
+            is_big_play = random.random() < 0.08
+            if is_big_play:
                 yards_gained = random.randint(20, 75)
             else:
                 if is_rb_target:
@@ -100,6 +116,12 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
             if yards_gained > receiver.longest_rec:
                 receiver.longest_rec = yards_gained
 
+            # Build description
+            if is_big_play:
+                play_description = f"{qb.name} DEEP pass to {receiver.name} for {yards_gained} yards!"
+            else:
+                play_description = f"{qb.name} pass to {receiver.name} for {yards_gained} yards"
+
             # Check if player went out of bounds
             if random.random() < 0.25:
                 clock_stops = True
@@ -110,7 +132,8 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
         rb.rush_attempts += 1
 
         # Check for big run (5% chance)
-        if random.random() < 0.05:
+        is_big_run = random.random() < 0.05
+        if is_big_run:
             yards_gained = random.randint(15, 80)
         else:
             yards_gained = random.randint(-2, 10) + (rb.skill - def_player.skill) // 20
@@ -122,6 +145,14 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
 
         time_elapsed = random.randint(3, 7)
 
+        # Build description
+        if is_big_run:
+            play_description = f"{rb.name} BREAKS FREE for {yards_gained} yards!"
+        elif yards_gained < 0:
+            play_description = f"{rb.name} tackled by {def_player.name} for {abs(yards_gained)} yard loss"
+        else:
+            play_description = f"{rb.name} rushes for {yards_gained} yards"
+
         # Check for fumble
         if random.random() < 0.015:
             rb.fumbles += 1
@@ -130,7 +161,10 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
                 def_player.fumble_recoveries += 1
                 time_elapsed = random.randint(6, 10)
                 clock_stops = True
-                return yards_gained, time_elapsed, clock_stops, True  # Turnover
+                play_description = f"{rb.name} rushes for {yards_gained} yards, FUMBLES! Recovered by {def_player.name}"
+                return yards_gained, time_elapsed, clock_stops, True, play_description  # Turnover
+            else:
+                play_description = f"{rb.name} rushes for {yards_gained} yards, FUMBLES but {offense.name} recovers!"
 
     # Defensive stats
     def_player.tackles += 1
@@ -144,12 +178,14 @@ def simulate_play(offense, defense, down, distance, yards_to_go):
         if play_type == "pass":
             qb.pass_td += 1
             receiver.rec_td += 1
+            play_description += " TOUCHDOWN!!!"
         else:
             rb.rush_td += 1
+            play_description += " TOUCHDOWN!!!"
         offense.score += 7
         clock_stops = True
 
-    return yards_gained, time_elapsed, clock_stops, False
+    return yards_gained, time_elapsed, clock_stops, False, play_description
 
 
 def simulate_drive(offense, defense):
@@ -163,6 +199,7 @@ def simulate_drive(offense, defense):
 
     down = 1
     distance = 10
+    plays = []  # Collect play descriptions
 
     while yards_to_go > 0:
         # Handle 4th down BEFORE simulating play
@@ -172,23 +209,30 @@ def simulate_drive(offense, defense):
                 fg_distance = yards_to_go + 17
                 if random.random() < 0.80:
                     offense.score += 3
-                return
+                    plays.append(f"Field goal attempt from {fg_distance} yards - GOOD!")
+                else:
+                    plays.append(f"Field goal attempt from {fg_distance} yards - MISSED!")
+                return plays
 
             # Go for it on short yardage
             elif distance <= 2 and random.random() < 0.30:
                 pass  # Continue to simulate play
             else:
                 # Punt
-                return
+                plays.append(f"Punt by {offense.name}")
+                return plays
 
         # Simulate the play
-        yards_gained, time_elapsed, clock_stops, is_turnover = simulate_play(
+        yards_gained, time_elapsed, clock_stops, is_turnover, play_description = simulate_play(
             offense, defense, down, distance, yards_to_go
         )
 
+        # Add play description with down and distance context
+        plays.append(f"{get_down_distance_str(down, distance)}: {play_description}")
+
         # Handle turnovers
         if is_turnover:
-            return
+            return plays
 
         # Update field position
         yards_to_go -= yards_gained
@@ -196,7 +240,7 @@ def simulate_drive(offense, defense):
 
         # Check for touchdown
         if yards_to_go <= 0:
-            return
+            return plays
 
         # Update downs
         if distance <= 0:
@@ -207,7 +251,9 @@ def simulate_drive(offense, defense):
 
         # Safety check
         if down > 4:
-            return
+            return plays
+
+    return plays
 
 
 def _snapshot_player_stats(players):
@@ -242,12 +288,22 @@ def simulate_game(team1, team2, user_team=None):
     team1.score = 0
     team2.score = 0
 
+    # Collect play-by-play
+    all_plays = []
+
     # Number of drives per team (simulates possessions)
     drives_per_team = random.randint(11, 13)
 
     for _ in range(drives_per_team):
-        simulate_drive(team1, team2)
-        simulate_drive(team2, team1)
+        plays1 = simulate_drive(team1, team2)
+        if plays1:
+            all_plays.append(f"\n--- {team1.name} Drive ---")
+            all_plays.extend(plays1)
+
+        plays2 = simulate_drive(team2, team1)
+        if plays2:
+            all_plays.append(f"\n--- {team2.name} Drive ---")
+            all_plays.extend(plays2)
 
     # Determine winner
     if team1.score > team2.score:
@@ -275,6 +331,10 @@ def simulate_game(team1, team2, user_team=None):
     # Compute per-player deltas (last game's stats) and store on the team
     _compute_delta_and_store(team1, before_team1, team1.players)
     _compute_delta_and_store(team2, before_team2, team2.players)
+
+    # Store play-by-play for both teams
+    team1.last_game_plays = all_plays
+    team2.last_game_plays = all_plays
 
     # Print result only if user team involved (or no user specified)
     if user_team is None or user_team in [team1.name, team2.name]:
