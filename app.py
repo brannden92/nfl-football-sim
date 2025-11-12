@@ -460,6 +460,11 @@ def simulate():
     user_top_players = get_top_players(user_team, games_played)
     opponent_top_players = get_top_players(opponent, games_played)
 
+    # Get team abbreviations
+    from config import TEAM_ABBREVIATIONS
+    user_abbrev = TEAM_ABBREVIATIONS.get(user_team.name, user_team.name[:3].upper())
+    opponent_abbrev = TEAM_ABBREVIATIONS.get(opponent.name, opponent.name[:3].upper())
+
     return render_template('simulate.html',
                          franchise=franchise,
                          user_team=user_team,
@@ -469,7 +474,9 @@ def simulate():
                          user_stats=user_stats,
                          opponent_stats=opponent_stats,
                          user_top_players=user_top_players,
-                         opponent_top_players=opponent_top_players)
+                         opponent_top_players=opponent_top_players,
+                         user_abbrev=user_abbrev,
+                         opponent_abbrev=opponent_abbrev)
 
 
 @app.route('/api/simulate-game', methods=['POST'])

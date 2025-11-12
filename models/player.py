@@ -72,6 +72,14 @@ class Player:
         self.longest_punt = 0
         self.inside_20 = 0
 
+        # Return stats
+        self.kickoff_returns = 0
+        self.kickoff_return_yards = 0
+        self.longest_kickoff_return = 0
+        self.punt_returns = 0
+        self.punt_return_yards = 0
+        self.longest_punt_return = 0
+
         # Career stats (accumulated across all seasons)
         self.career_stats = {
             "pass_attempts": 0, "pass_completions": 0, "pass_yards": 0, "pass_td": 0,
@@ -82,7 +90,9 @@ class Player:
             "tackles": 0, "sacks": 0, "qb_pressure": 0, "interceptions_def": 0,
             "forced_fumbles": 0, "fumble_recoveries": 0, "pass_deflections": 0,
             "fg_attempts": 0, "fg_made": 0, "longest_fg": 0, "xp_attempts": 0, "xp_made": 0,
-            "punt_attempts": 0, "punt_yards": 0, "longest_punt": 0, "inside_20": 0
+            "punt_attempts": 0, "punt_yards": 0, "longest_punt": 0, "inside_20": 0,
+            "kickoff_returns": 0, "kickoff_return_yards": 0, "longest_kickoff_return": 0,
+            "punt_returns": 0, "punt_return_yards": 0, "longest_punt_return": 0
         }
 
         self.reset_stats()
@@ -148,6 +158,16 @@ class Player:
 
             self.kicking_accuracy = min(99, max(50, self.skill + variance))
             self.kicking_accuracy_potential = min(99, self.kicking_accuracy + random.randint(5, 15))
+
+        # Return skill for all positions (higher for RB, WR, CB)
+        if self.position in ["RB", "WR", "CB"]:
+            # Return specialists can have 70+ returning skill
+            self.returning = min(99, max(60, self.skill + variance))
+            self.returning_potential = min(99, self.returning + random.randint(5, 15))
+        else:
+            # Other positions have lower return skills
+            self.returning = min(75, max(40, self.skill - 10 + variance))
+            self.returning_potential = min(80, self.returning + random.randint(3, 10))
 
     def _initialize_scouting_variance(self):
         """Initialize consistent variance for rookie scouting (only called for rookies)"""
@@ -316,6 +336,10 @@ class Player:
             if hasattr(self, 'kicking_accuracy_potential'):
                 potentials.append(self.kicking_accuracy_potential)
 
+        # Return skill potential (for all positions)
+        if hasattr(self, 'returning_potential'):
+            potentials.append(self.returning_potential)
+
         # Return average potential
         if potentials:
             return int(sum(potentials) / len(potentials))
@@ -330,7 +354,9 @@ class Player:
             "drops", "longest_rec", "tackles", "sacks", "qb_pressure", "interceptions_def",
             "forced_fumbles", "fumble_recoveries", "pass_deflections",
             "fg_attempts", "fg_made", "longest_fg", "xp_attempts", "xp_made",
-            "punt_attempts", "punt_yards", "longest_punt", "inside_20"
+            "punt_attempts", "punt_yards", "longest_punt", "inside_20",
+            "kickoff_returns", "kickoff_return_yards", "longest_kickoff_return",
+            "punt_returns", "punt_return_yards", "longest_punt_return"
         ]
         for attr in attrs:
             setattr(self, attr, 0)
@@ -386,6 +412,9 @@ class Player:
             self._progress_attribute('kicking_power', 'kicking_power_potential', attr_progression)
             self._progress_attribute('kicking_accuracy', 'kicking_accuracy_potential', attr_progression)
 
+        # Progress returning skill for all positions
+        self._progress_attribute('returning', 'returning_potential', attr_progression)
+
         self.age += 1
         self.years_played += 1
 
@@ -431,7 +460,8 @@ class Player:
             "tackles", "sacks", "qb_pressure", "interceptions_def",
             "forced_fumbles", "fumble_recoveries", "pass_deflections",
             "fg_attempts", "fg_made", "xp_attempts", "xp_made",
-            "punt_attempts", "punt_yards", "inside_20"
+            "punt_attempts", "punt_yards", "inside_20",
+            "kickoff_returns", "kickoff_return_yards", "punt_returns", "punt_return_yards"
         ]
 
         for attr in stat_attrs:
@@ -448,3 +478,7 @@ class Player:
             self.career_stats["longest_fg"] = self.longest_fg
         if self.longest_punt > self.career_stats.get("longest_punt", 0):
             self.career_stats["longest_punt"] = self.longest_punt
+        if self.longest_kickoff_return > self.career_stats.get("longest_kickoff_return", 0):
+            self.career_stats["longest_kickoff_return"] = self.longest_kickoff_return
+        if self.longest_punt_return > self.career_stats.get("longest_punt_return", 0):
+            self.career_stats["longest_punt_return"] = self.longest_punt_return

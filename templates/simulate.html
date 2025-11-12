@@ -321,16 +321,8 @@ let currentFieldPosition = 25;
 let currentSimSpeed = 'normal';
 const userTeamName = "{{ user_team.name }}";
 const opponentTeamName = "{{ opponent.name }}";
-const userTeamAbbrev = getTeamAbbrev(userTeamName);
-const opponentTeamAbbrev = getTeamAbbrev(opponentTeamName);
-
-function getTeamAbbrev(teamName) {
-    const words = teamName.split(' ');
-    if (words.length >= 2) {
-        return words[words.length - 1].substring(0, 3).toUpperCase();
-    }
-    return teamName.substring(0, 3).toUpperCase();
-}
+const userTeamAbbrev = "{{ user_abbrev }}";
+const opponentTeamAbbrev = "{{ opponent_abbrev }}";
 
 function startWatchGame() {
     simulateGame(false);
@@ -654,71 +646,82 @@ function renderField() {
     // If user has ball, they're moving left-to-right (toward opponent endzone)
     // If opponent has ball, they're moving right-to-left (toward user endzone)
     let ballPosFromUserSide;
-    let direction = '';
+    let arrow = '';
 
     if (currentOffense === 'user') {
         ballPosFromUserSide = currentFieldPosition;
-        direction = '→'; // User attacking right
+        arrow = '→'; // User attacking right
     } else {
         ballPosFromUserSide = 100 - currentFieldPosition;
-        direction = '←'; // Opponent attacking left
+        arrow = '←'; // Opponent attacking left
     }
 
     // Build enhanced field visualization
-    const fieldWidth = 80;
+    const fieldWidth = 100;
     const ballPixel = Math.floor((ballPosFromUserSide / 100) * fieldWidth);
 
-    let topLine = `${userTeamAbbrev} ${'-'.repeat(fieldWidth)} ${opponentTeamAbbrev}`;
-    let fieldLine = userTeamAbbrev + ' ';
+    // Yard markers ABOVE field (every 10 yards)
+    let yardMarkers = '   '; // Start padding
+    for (let i = 0; i <= 100; i += 10) {
+        const pixelPos = Math.floor((i / 100) * fieldWidth);
+        const padLeft = pixelPos - yardMarkers.length;
+        yardMarkers += ' '.repeat(Math.max(0, padLeft));
 
+        if (i === 0 || i === 100) {
+            yardMarkers += 'GL';
+        } else if (i === 50) {
+            yardMarkers += '50';
+        } else if (i < 50) {
+            yardMarkers += String(i);
+        } else {
+            yardMarkers += String(100 - i);
+        }
+    }
+
+    // Main field line with ball and markers
+    let fieldLine = userTeamAbbrev + ' ║';
     for (let i = 0; i < fieldWidth; i++) {
         if (i === ballPixel) {
             fieldLine += '🏈';
-        } else if (i === 0 || i === fieldWidth - 1) {
-            fieldLine += '║';
         } else if (i % 10 === 0) {
             fieldLine += '│';
         } else {
             fieldLine += '─';
         }
     }
-    fieldLine += ' ' + opponentTeamAbbrev;
+    fieldLine += '║ ' + opponentTeamAbbrev;
 
-    // Yard markers
-    let yardLine = userTeamAbbrev + ' ';
-    for (let i = 0; i < fieldWidth; i++) {
-        if (i === 0) yardLine += '0';
-        else if (i === fieldWidth / 2) yardLine += '50';
-        else if (i === fieldWidth - 1) yardLine += '0';
-        else if (i % 10 === 0) {
-            const yard = Math.floor((i / fieldWidth) * 100);
-            if (yard <= 50) yardLine += String(yard).padStart(2, ' ').substring(0, 1);
-            else yardLine += String(100 - yard).padStart(2, ' ').substring(0, 1);
-        } else yardLine += ' ';
+    // Arrow below ball
+    let arrowLine = '    '; // Padding to align with field
+    for (let i = 0; i < fieldWidth + 2; i++) {
+        if (i === ballPixel + 1) {
+            arrowLine += arrow;
+        } else {
+            arrowLine += ' ';
+        }
     }
-    yardLine += ' ' + opponentTeamAbbrev;
 
     // Position info
     let posInfo = '';
     if (currentFieldPosition === 50) {
-        posInfo = `${direction} Ball at 50 yard line`;
+        posInfo = `Ball at 50 yard line`;
     } else {
         const offense = currentOffense === 'user' ? userTeamAbbrev : opponentTeamAbbrev;
         const defense = currentOffense === 'user' ? opponentTeamAbbrev : userTeamAbbrev;
         const yardsToGoal = 100 - currentFieldPosition;
 
         if (currentFieldPosition < 50) {
-            posInfo = `${direction} ${offense} has ball at ${offense} ${currentFieldPosition} (${yardsToGoal} yds to goal)`;
+            posInfo = `${offense} has ball at ${offense} ${currentFieldPosition} (${yardsToGoal} yds to goal)`;
         } else {
-            posInfo = `${direction} ${offense} has ball at ${defense} ${100 - currentFieldPosition} (${yardsToGoal} yds to goal)`;
+            posInfo = `${offense} has ball at ${defense} ${100 - currentFieldPosition} (${yardsToGoal} yds to goal)`;
         }
     }
 
     fieldDisplay.innerHTML = `
-        <div style="font-size: 12px; line-height: 1.6;">
-            <div style="color: #666;">${topLine}</div>
-            <div style="font-size: 16px; font-weight: bold; color: #000;">${fieldLine}</div>
-            <div style="color: #666; font-size: 10px;">${yardLine}</div>
+        <div style="font-size: 11px; line-height: 1.4; font-family: 'Courier New', monospace;">
+            <div style="color: #888;">${yardMarkers}</div>
+            <div style="font-size: 14px; font-weight: bold; color: #000; margin: 2px 0;">${fieldLine}</div>
+            <div style="color: #d00; font-size: 16px; font-weight: bold;">${arrowLine}</div>
             <div style="margin-top: 8px; font-size: 13px; font-weight: bold; color: #333;">${posInfo}</div>
         </div>
     `;
