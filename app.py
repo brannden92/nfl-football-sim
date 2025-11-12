@@ -445,9 +445,13 @@ def index():
         print(f"{'='*60}\n")
 
         next_opponent = schedule_get_next_opponent(franchise, user_team.name)
+
         if next_opponent:
+            print(f"DEBUG: Found opponent for week {franchise.current_week}: {next_opponent.name}")
             next_opponent_ratings = calculate_team_ratings(next_opponent, games_played)
             next_opponent_stats = calculate_team_stats(next_opponent, games_played)
+        else:
+            print(f"DEBUG: NO OPPONENT found for week {franchise.current_week} - will show season complete or BYE")
     elif franchise.playoff_state and not franchise.season_complete and not user_team.eliminated:
         # Playoffs - find user's next playoff opponent
         next_opponent = _get_playoff_opponent(franchise, user_team)

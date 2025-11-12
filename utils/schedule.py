@@ -132,6 +132,18 @@ def generate_season_schedule(teams):
         schedule[week] = week_matchups
         week += 1
 
+    # Debug: Validate schedule - count games per team
+    team_game_counts = {}
+    for team in teams:
+        game_count = sum(1 for w in schedule.values() for m in w
+                        if m['home'].name == team.name or m['away'].name == team.name)
+        team_game_counts[team.name] = game_count
+
+    # Print teams with incorrect game counts
+    incorrect_counts = {name: count for name, count in team_game_counts.items() if count != 17}
+    if incorrect_counts:
+        print(f"\n*** WARNING: Some teams don't have exactly 17 games: {incorrect_counts} ***\n")
+
     return schedule
 
 
