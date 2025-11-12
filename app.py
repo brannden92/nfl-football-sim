@@ -273,11 +273,18 @@ def _advance_playoff_bracket(franchise, user_team):
                       and not t.eliminated
                       and t.playoff_wins > 0]
 
-            # Add #1 seed (gets bye)
+            # Add #1 and #2 seeds (both get first-round byes)
             seed1 = next((t for t in franchise.teams
                          if t.league == conf.upper() and t.playoff_seed == 1), None)
+            seed2 = next((t for t in franchise.teams
+                         if t.league == conf.upper() and t.playoff_seed == 2), None)
+
             if seed1 and not seed1.eliminated:
                 winners.insert(0, seed1)
+            if seed2 and not seed2.eliminated:
+                # Insert at index 1 (after seed1) if seed1 exists, else at 0
+                insert_pos = 1 if (seed1 and not seed1.eliminated) else 0
+                winners.insert(insert_pos, seed2)
 
             franchise.playoff_bracket['wildcard_winners'][conf] = winners
 
@@ -976,11 +983,18 @@ def api_simulate_playoff_round():
                       and not t.eliminated
                       and t.playoff_wins > 0]
 
-            # Add #1 seed (gets bye)
+            # Add #1 and #2 seeds (both get first-round byes)
             seed1 = next((t for t in franchise.teams
                          if t.league == conf.upper() and t.playoff_seed == 1), None)
+            seed2 = next((t for t in franchise.teams
+                         if t.league == conf.upper() and t.playoff_seed == 2), None)
+
             if seed1 and not seed1.eliminated:
                 winners.insert(0, seed1)
+            if seed2 and not seed2.eliminated:
+                # Insert at index 1 (after seed1) if seed1 exists, else at 0
+                insert_pos = 1 if (seed1 and not seed1.eliminated) else 0
+                winners.insert(insert_pos, seed2)
 
             franchise.playoff_bracket['wildcard_winners'][conf] = winners
 
