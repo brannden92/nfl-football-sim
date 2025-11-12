@@ -468,6 +468,12 @@ def index():
     if games_played > 0 and hasattr(user_team, 'last_game_stats'):
         last_game_summary = user_team.last_game_stats
 
+    # Detect BYE week (no opponent but still in regular season)
+    is_bye_week = (franchise.current_week <= SEASON_GAMES and
+                   not next_opponent and
+                   not franchise.playoff_state and
+                   not franchise.season_complete)
+
     return render_template('index.html',
                          franchise=franchise,
                          user_team=user_team,
@@ -479,7 +485,8 @@ def index():
                          next_opponent_stats=next_opponent_stats,
                          games_played=games_played,
                          stat_rankings=stat_rankings,
-                         last_game_summary=last_game_summary)
+                         last_game_summary=last_game_summary,
+                         is_bye_week=is_bye_week)
 
 
 @app.route('/setup', methods=['GET', 'POST'])
@@ -705,6 +712,52 @@ def api_simulate_game():
             'fast_sim': fast_sim,
             'is_playoff': False
         })
+
+
+@app.route('/api/simulate-week', methods=['POST'])
+def api_simulate_week():
+    """API endpoint to simulate all games in the week and advance (used for BYE weeks)"""
+    franchise = get_franchise()
+    if not franchise:
+        return jsonify({'error': 'No franchise found'}), 404
+
+    user_team = get_user_team(franchise)
+
+    # Simulate all games in the current week
+    other_games = []
+    if franchise.current_week in franchise.schedule:
+        for matchup in franchise.schedule[franchise.current_week]:
+            home = matchup['home']
+            away = matchup['away']
+
+            # Skip if already played
+            if matchup['played']:
+                continue
+
+            # Simulate this game
+            game_winner = simulate_game(home, away, user_team=None, is_playoff=False)
+            matchup['played'] = True
+            matchup['home_score'] = home.score
+            matchup['away_score'] = away.score
+
+            other_games.append({
+                'team1': home.name,
+                'team1_score': home.score,
+                'team2': away.name,
+                'team2_score': away.score
+            })
+
+    # Advance week
+    franchise.current_week += 1
+
+    # Save franchise
+    save_current_franchise(franchise)
+
+    return jsonify({
+        'success': True,
+        'current_week': franchise.current_week,
+        'other_games': other_games
+    })
 
 
 @app.route('/standings')
