@@ -671,38 +671,25 @@ def _compute_delta_and_store(team, before_snap, after_players):
     team.last_game_player_stats = deltas
 
 
-def _create_game_summary(team1, team2, user_team_name):
-    """Create game summary for home page display"""
+def _create_game_summary(team1, team2, user_team_name, team1_quarters, team2_quarters):
+    """Create game summary for home page display
+
+    Args:
+        team1: First team
+        team2: Second team
+        user_team_name: Name of user's team
+        team1_quarters: List of 4 quarter scores for team1
+        team2_quarters: List of 4 quarter scores for team2
+    """
     # Determine which team is user's team
     if user_team_name == team1.name:
         user, opponent = team1, team2
+        user_quarters = team1_quarters
+        opp_quarters = team2_quarters
     else:
         user, opponent = team2, team1
-
-    # Calculate quarter scores (simplified - actual quarter tracking would require more work)
-    # For now, distribute scores roughly across quarters
-    import random
-
-    def distribute_score(total_score):
-        """Distribute total score across 4 quarters"""
-        if total_score == 0:
-            return [0, 0, 0, 0]
-        quarters = [0, 0, 0, 0]
-        remaining = total_score
-        # Distribute points in increments of 3 or 7 (FG/TD)
-        for i in range(4):
-            if remaining > 0:
-                # Put some points in each quarter
-                max_this_quarter = min(remaining, random.randint(0, remaining // (4 - i) + 7))
-                quarters[i] = max_this_quarter
-                remaining -= max_this_quarter
-        # Add any remaining points to a random quarter
-        if remaining > 0:
-            quarters[random.randint(0, 3)] += remaining
-        return quarters
-
-    user_quarters = distribute_score(user.score)
-    opp_quarters = distribute_score(opponent.score)
+        user_quarters = team2_quarters
+        opp_quarters = team1_quarters
 
     # Calculate team stats from player stats
     user_pass_yds = sum(getattr(p, 'pass_yards', 0) for p in user.players)
@@ -782,6 +769,10 @@ def simulate_game(team1, team2, user_team=None, is_playoff=False):
     team1_total_yards = 0
     team2_total_yards = 0
 
+    # Track quarter-by-quarter scoring
+    team1_quarter_scores = [0, 0, 0, 0]  # Q1, Q2, Q3, Q4
+    team2_quarter_scores = [0, 0, 0, 0]
+
     # Game clock: 4 quarters x 15 minutes = 3600 seconds
     quarter = 1
     time_in_quarter = 900  # 15 minutes in seconds
@@ -845,6 +836,11 @@ def simulate_game(team1, team2, user_team=None, is_playoff=False):
                 # Turnover/punt - flip field position
                 field_pos = 100 - end_field_pos
                 field_pos = max(1, min(99, field_pos))
+
+        # Save quarter scores before moving to next quarter
+        if quarter >= 1 and quarter <= 4:
+            team1_quarter_scores[quarter - 1] = team1.score
+            team2_quarter_scores[quarter - 1] = team2.score
 
         # Move to next quarter
         quarter += 1
@@ -1022,9 +1018,9 @@ def simulate_game(team1, team2, user_team=None, is_playoff=False):
     # Create and store game summary for user's team
     if user_team:
         if user_team == team1.name:
-            team1.last_game_stats = _create_game_summary(team1, team2, user_team)
+            team1.last_game_stats = _create_game_summary(team1, team2, user_team, team1_quarter_scores, team2_quarter_scores)
         elif user_team == team2.name:
-            team2.last_game_stats = _create_game_summary(team1, team2, user_team)
+            team2.last_game_stats = _create_game_summary(team1, team2, user_team, team1_quarter_scores, team2_quarter_scores)
 
     # Print result
     if user_team is None or user_team in [team1.name, team2.name]:
