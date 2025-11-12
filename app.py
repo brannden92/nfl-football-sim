@@ -455,6 +455,34 @@ def index():
     elif franchise.playoff_state and not franchise.season_complete and not user_team.eliminated:
         # Playoffs - find user's next playoff opponent
         next_opponent = _get_playoff_opponent(franchise, user_team)
+
+        # MIGRATION FIX: If no opponent in Conference round, try to regenerate matchups
+        if not next_opponent and franchise.playoff_state in ['divisional', 'conference']:
+            print(f"DEBUG: No opponent found in {franchise.playoff_state}, attempting to fix matchups...")
+
+            if franchise.playoff_state == 'conference':
+                # Try to regenerate Conference Championship matchups
+                user_conf = user_team.league.lower()
+                winners = [t for t in franchise.teams
+                          if t.league == user_team.league
+                          and hasattr(t, 'playoff_seed')
+                          and not t.eliminated
+                          and t.playoff_wins >= 1]  # At least 1 playoff win
+
+                print(f"DEBUG: Found {len(winners)} {user_team.league} winners: {[f'{t.name} (seed {t.playoff_seed}, {t.playoff_wins} wins)' for t in winners]}")
+
+                if len(winners) >= 2:
+                    seeds = sorted([t.playoff_seed for t in winners])
+                    franchise.playoff_bracket['conference'][user_conf] = [
+                        {'seed1': seeds[0], 'seed2': seeds[1]}
+                    ]
+                    print(f"DEBUG: Created Conference matchup: #{seeds[0]} vs #{seeds[1]}")
+                    save_current_franchise(franchise)
+
+                    # Try to find opponent again
+                    next_opponent = _get_playoff_opponent(franchise, user_team)
+                    print(f"DEBUG: After fix, opponent: {next_opponent.name if next_opponent else 'None'}")
+
         if next_opponent:
             next_opponent_ratings = calculate_team_ratings(next_opponent, games_played)
             next_opponent_stats = calculate_team_stats(next_opponent, games_played)
