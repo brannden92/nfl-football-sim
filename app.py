@@ -376,11 +376,24 @@ def index():
         afc_teams = get_playoff_teams([t for t in franchise.teams if t.league == "AFC"])
         nfc_teams = get_playoff_teams([t for t in franchise.teams if t.league == "NFC"])
 
-        # Assign playoff seeds
+        # Reset playoff stats for ALL teams first
+        for team in franchise.teams:
+            team.playoff_wins = 0
+            team.playoff_losses = 0
+            team.playoff_seed = None
+            team.eliminated = False
+
+        # Assign playoff seeds only to playoff teams
         for i, team in enumerate(afc_teams, 1):
             team.playoff_seed = i
         for i, team in enumerate(nfc_teams, 1):
             team.playoff_seed = i
+
+        # Mark non-playoff teams as eliminated
+        playoff_teams = set(afc_teams + nfc_teams)
+        for team in franchise.teams:
+            if team not in playoff_teams:
+                team.eliminated = True
 
         # Check if user made playoffs
         if user_team in afc_teams or user_team in nfc_teams:
