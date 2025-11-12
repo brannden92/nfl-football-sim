@@ -547,9 +547,16 @@ def simulate():
 
     user_team = get_user_team(franchise)
 
-    # Get opponent from schedule
-    from utils.schedule import get_next_opponent as schedule_get_next_opponent
-    opponent = schedule_get_next_opponent(franchise, user_team.name)
+    # Determine if this is a playoff game
+    is_playoff = franchise.playoff_state is not None and franchise.current_week > SEASON_GAMES
+
+    if is_playoff:
+        # Get playoff opponent
+        opponent = _get_playoff_opponent(franchise, user_team)
+    else:
+        # Get opponent from regular season schedule
+        from utils.schedule import get_next_opponent as schedule_get_next_opponent
+        opponent = schedule_get_next_opponent(franchise, user_team.name)
 
     if not opponent:
         # No opponent (BYE week or season over) - redirect to home
@@ -585,7 +592,8 @@ def simulate():
                          user_top_players=user_top_players,
                          opponent_top_players=opponent_top_players,
                          user_abbrev=user_abbrev,
-                         opponent_abbrev=opponent_abbrev)
+                         opponent_abbrev=opponent_abbrev,
+                         is_playoff=is_playoff)
 
 
 @app.route('/api/simulate-game', methods=['POST'])
