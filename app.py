@@ -33,6 +33,15 @@ def get_franchise():
                 from utils.schedule import generate_season_schedule
                 franchise.schedule = generate_season_schedule(franchise.teams)
 
+                # Mark past weeks as played (for mid-season migrations)
+                for week in range(1, franchise.current_week):
+                    if week in franchise.schedule:
+                        for matchup in franchise.schedule[week]:
+                            matchup['played'] = True
+                            # Set placeholder scores for past games
+                            matchup['home_score'] = matchup['home'].score
+                            matchup['away_score'] = matchup['away'].score
+
             # Compatibility: Ensure all teams have last_game_player_stats
             for team in franchise.teams:
                 if not hasattr(team, 'last_game_player_stats'):
@@ -402,6 +411,13 @@ def index():
     if franchise.current_week <= SEASON_GAMES:
         # Regular season - use schedule to get next opponent
         from utils.schedule import get_next_opponent as schedule_get_next_opponent
+
+        # Debug: Check schedule status
+        print(f"DEBUG: Current week: {franchise.current_week}, SEASON_GAMES: {SEASON_GAMES}")
+        print(f"DEBUG: Schedule has weeks: {sorted(franchise.schedule.keys())}")
+        if franchise.current_week not in franchise.schedule:
+            print(f"WARNING: Week {franchise.current_week} not in schedule!")
+
         next_opponent = schedule_get_next_opponent(franchise, user_team.name)
         if next_opponent:
             next_opponent_ratings = calculate_team_ratings(next_opponent, games_played)
