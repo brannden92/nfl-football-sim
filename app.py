@@ -479,6 +479,14 @@ def index():
                            not franchise.season_complete and
                            (user_team.eliminated or not hasattr(user_team, 'playoff_seed') or user_team.playoff_seed is None))
 
+    # Detect playoff BYE (user is in playoffs, has seed, but no opponent - like #1 or #2 seed in Wild Card round)
+    is_playoff_bye = (franchise.playoff_state and
+                     not franchise.season_complete and
+                     not user_team.eliminated and
+                     hasattr(user_team, 'playoff_seed') and
+                     user_team.playoff_seed is not None and
+                     not next_opponent)
+
     return render_template('index.html',
                          franchise=franchise,
                          user_team=user_team,
@@ -492,7 +500,8 @@ def index():
                          stat_rankings=stat_rankings,
                          last_game_summary=last_game_summary,
                          is_bye_week=is_bye_week,
-                         is_watching_playoffs=is_watching_playoffs)
+                         is_watching_playoffs=is_watching_playoffs,
+                         is_playoff_bye=is_playoff_bye)
 
 
 @app.route('/setup', methods=['GET', 'POST'])
