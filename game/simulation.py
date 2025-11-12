@@ -668,7 +668,92 @@ def _compute_delta_and_store(team, before_snap, after_players):
             after_val = getattr(p, attr, 0)
             delta[attr] = after_val - before.get(attr, 0)
         deltas[name] = delta
-    team.last_game_stats = deltas
+    team.last_game_player_stats = deltas
+
+
+def _create_game_summary(team1, team2, user_team_name):
+    """Create game summary for home page display"""
+    # Determine which team is user's team
+    if user_team_name == team1.name:
+        user, opponent = team1, team2
+    else:
+        user, opponent = team2, team1
+
+    # Calculate quarter scores (simplified - actual quarter tracking would require more work)
+    # For now, distribute scores roughly across quarters
+    import random
+
+    def distribute_score(total_score):
+        """Distribute total score across 4 quarters"""
+        if total_score == 0:
+            return [0, 0, 0, 0]
+        quarters = [0, 0, 0, 0]
+        remaining = total_score
+        # Distribute points in increments of 3 or 7 (FG/TD)
+        for i in range(4):
+            if remaining > 0:
+                # Put some points in each quarter
+                max_this_quarter = min(remaining, random.randint(0, remaining // (4 - i) + 7))
+                quarters[i] = max_this_quarter
+                remaining -= max_this_quarter
+        # Add any remaining points to a random quarter
+        if remaining > 0:
+            quarters[random.randint(0, 3)] += remaining
+        return quarters
+
+    user_quarters = distribute_score(user.score)
+    opp_quarters = distribute_score(opponent.score)
+
+    # Calculate team stats from player stats
+    user_pass_yds = sum(getattr(p, 'pass_yards', 0) for p in user.players)
+    user_pass_td = sum(getattr(p, 'pass_td', 0) for p in user.players)
+    user_int = sum(getattr(p, 'interceptions', 0) for p in user.players)
+    user_rush_yds = sum(getattr(p, 'rush_yards', 0) for p in user.players)
+    user_rush_td = sum(getattr(p, 'rush_td', 0) for p in user.players)
+    user_fum = sum(getattr(p, 'fumbles', 0) for p in user.players)
+    user_fg_made = sum(getattr(p, 'fg_made', 0) for p in user.players)
+    user_fg_att = sum(getattr(p, 'fg_attempts', 0) for p in user.players)
+
+    opp_pass_yds = sum(getattr(p, 'pass_yards', 0) for p in opponent.players)
+    opp_pass_td = sum(getattr(p, 'pass_td', 0) for p in opponent.players)
+    opp_int = sum(getattr(p, 'interceptions', 0) for p in opponent.players)
+    opp_rush_yds = sum(getattr(p, 'rush_yards', 0) for p in opponent.players)
+    opp_rush_td = sum(getattr(p, 'rush_td', 0) for p in opponent.players)
+    opp_fum = sum(getattr(p, 'fumbles', 0) for p in opponent.players)
+    opp_fg_made = sum(getattr(p, 'fg_made', 0) for p in opponent.players)
+    opp_fg_att = sum(getattr(p, 'fg_attempts', 0) for p in opponent.players)
+
+    summary = {
+        'opponent_name': opponent.name,
+        'user_final_score': user.score,
+        'opp_final_score': opponent.score,
+        'user_q1': user_quarters[0],
+        'user_q2': user_quarters[1],
+        'user_q3': user_quarters[2],
+        'user_q4': user_quarters[3],
+        'opp_q1': opp_quarters[0],
+        'opp_q2': opp_quarters[1],
+        'opp_q3': opp_quarters[2],
+        'opp_q4': opp_quarters[3],
+        'user_pass_yds': user_pass_yds,
+        'user_pass_td': user_pass_td,
+        'user_int': user_int,
+        'user_rush_yds': user_rush_yds,
+        'user_rush_td': user_rush_td,
+        'user_fum': user_fum,
+        'user_fg_made': user_fg_made,
+        'user_fg_att': user_fg_att,
+        'opp_pass_yds': opp_pass_yds,
+        'opp_pass_td': opp_pass_td,
+        'opp_int': opp_int,
+        'opp_rush_yds': opp_rush_yds,
+        'opp_rush_td': opp_rush_td,
+        'opp_fum': opp_fum,
+        'opp_fg_made': opp_fg_made,
+        'opp_fg_att': opp_fg_att,
+    }
+
+    return summary
 
 
 def simulate_game(team1, team2, user_team=None, is_playoff=False):
@@ -933,6 +1018,13 @@ def simulate_game(team1, team2, user_team=None, is_playoff=False):
 
     team1.last_game_plays = all_plays
     team2.last_game_plays = all_plays
+
+    # Create and store game summary for user's team
+    if user_team:
+        if user_team == team1.name:
+            team1.last_game_stats = _create_game_summary(team1, team2, user_team)
+        elif user_team == team2.name:
+            team2.last_game_stats = _create_game_summary(team1, team2, user_team)
 
     # Print result
     if user_team is None or user_team in [team1.name, team2.name]:

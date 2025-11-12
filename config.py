@@ -4,7 +4,7 @@ Configuration constants for the NFL Football Simulation
 
 # Franchise settings
 FRANCHISE_LENGTH = 40  # Number of seasons in a franchise
-SEASON_GAMES = 17      # Number of regular season games
+SEASON_GAMES = 18      # Number of regular season weeks (17 games + BYE week per team)
 
 # Team abbreviations (proper NFL abbreviations)
 TEAM_ABBREVIATIONS = {

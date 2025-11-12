@@ -12,6 +12,10 @@ class Franchise:
         self.current_season = current_season
         self.current_week = current_week
 
+        # Season schedule (week -> list of matchups)
+        # Each matchup is a dict: {'home': team, 'away': team, 'played': False, 'home_score': 0, 'away_score': 0}
+        self.schedule = {}  # Will be populated by generate_schedule()
+
         # Playoff state tracking
         self.playoff_state = None  # None, 'wildcard', 'divisional', 'conference', 'superbowl'
         self.playoff_bracket = {}  # Stores playoff matchups and results

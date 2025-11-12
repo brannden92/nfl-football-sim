@@ -355,10 +355,10 @@ def index():
         save_current_franchise(franchise)
 
     if franchise.current_week <= SEASON_GAMES:
-        # Regular season - simple scheduling
-        available = [t for t in franchise.teams if t != user_team and t.league == user_team.league]
-        if available:
-            next_opponent = available[(franchise.current_week - 1) % len(available)]
+        # Regular season - use schedule to get next opponent
+        from utils.schedule import get_next_opponent as schedule_get_next_opponent
+        next_opponent = schedule_get_next_opponent(franchise, user_team.name)
+        if next_opponent:
             next_opponent_ratings = calculate_team_ratings(next_opponent, games_played)
             next_opponent_stats = calculate_team_stats(next_opponent, games_played)
     elif franchise.playoff_state and not franchise.season_complete and not user_team.eliminated:
@@ -409,6 +409,10 @@ def setup():
             current_season=1,
             current_week=1
         )
+
+        # Generate season schedule
+        from utils.schedule import generate_season_schedule
+        franchise.schedule = generate_season_schedule(teams)
 
         save_current_franchise(franchise)
         return redirect(url_for('index'))
@@ -527,35 +531,71 @@ def api_simulate_game():
         })
 
     else:
-        # Regular season game
-        available = [t for t in franchise.teams if t != user_team and t.league == user_team.league]
-        opponent = available[(franchise.current_week - 1) % len(available)]
+        # Regular season game - use schedule
+        from utils.schedule import get_next_opponent as schedule_get_next_opponent
+
+        # Get opponent from schedule
+        opponent = schedule_get_next_opponent(franchise, user_team.name)
+
+        if not opponent:
+            # BYE week - no game to simulate
+            franchise.current_week += 1
+            save_current_franchise(franchise)
+            return jsonify({
+                'plays': [f"Week {franchise.current_week - 1} - BYE WEEK", f"{user_team.name} has a bye week this week."],
+                'user_score': 0,
+                'opponent_score': 0,
+                'winner': 'BYE',
+                'current_week': franchise.current_week,
+                'other_games': [],
+                'fast_sim': False,
+                'is_playoff': False,
+                'is_bye': True
+            })
 
         # Simulate the user's game
         winner = simulate_game(user_team, opponent, user_team=user_team.name, is_playoff=False)
 
-        # Get play-by-play for user's game (always include plays now)
+        # Get play-by-play for user's game
         plays = user_team.last_game_plays
 
-        # Simulate all other games in the league for this week
+        # Update schedule to mark game as played
+        if franchise.current_week in franchise.schedule:
+            for matchup in franchise.schedule[franchise.current_week]:
+                if matchup['home'].name == user_team.name and matchup['away'].name == opponent.name:
+                    matchup['played'] = True
+                    matchup['home_score'] = user_team.score
+                    matchup['away_score'] = opponent.score
+                    break
+                elif matchup['away'].name == user_team.name and matchup['home'].name == opponent.name:
+                    matchup['played'] = True
+                    matchup['home_score'] = opponent.score
+                    matchup['away_score'] = user_team.score
+                    break
+
+        # Simulate all other games in the week from schedule
         other_games = []
-        simulated_teams = {user_team.name, opponent.name}
+        if franchise.current_week in franchise.schedule:
+            for matchup in franchise.schedule[franchise.current_week]:
+                home = matchup['home']
+                away = matchup['away']
 
-        for i in range(0, len(franchise.teams), 2):
-            team1 = franchise.teams[i]
-            team2 = franchise.teams[i + 1] if i + 1 < len(franchise.teams) else None
+                # Skip if already played (user's game)
+                if matchup['played']:
+                    continue
 
-            if team2 and team1.name not in simulated_teams and team2.name not in simulated_teams:
                 # Simulate this game
-                game_winner = simulate_game(team1, team2, user_team=None, is_playoff=False)
+                game_winner = simulate_game(home, away, user_team=None, is_playoff=False)
+                matchup['played'] = True
+                matchup['home_score'] = home.score
+                matchup['away_score'] = away.score
+
                 other_games.append({
-                    'team1': team1.name,
-                    'team1_score': team1.score,
-                    'team2': team2.name,
-                    'team2_score': team2.score
+                    'team1': home.name,
+                    'team1_score': home.score,
+                    'team2': away.name,
+                    'team2_score': away.score
                 })
-                simulated_teams.add(team1.name)
-                simulated_teams.add(team2.name)
 
         # Advance week
         franchise.current_week += 1
@@ -749,7 +789,7 @@ def league_schedule():
 
 @app.route('/api/game-stats')
 def api_game_stats():
-    """API endpoint to get player stats for a specific team"""
+    """API endpoint to get player stats for the LAST GAME ONLY (not season totals)"""
     franchise = get_franchise()
     if not franchise:
         return jsonify({'error': 'No franchise found'}), 404
@@ -763,40 +803,51 @@ def api_game_stats():
     if not team:
         return jsonify({'error': 'Team not found'}), 404
 
-    # Collect player stats
+    # Use last_game_player_stats (game deltas) instead of season totals
     player_stats = []
-    for player in team.players:
-        player_data = {
-            'name': player.name,
-            'position': player.position,
-            'pass_attempts': player.pass_attempts,
-            'pass_completions': player.pass_completions,
-            'pass_yards': player.pass_yards,
-            'pass_td': player.pass_td,
-            'interceptions': player.interceptions,
-            'rush_attempts': player.rush_attempts,
-            'rush_yards': player.rush_yards,
-            'rush_td': player.rush_td,
-            'rec_targets': player.rec_targets,
-            'rec_catches': player.rec_catches,
-            'rec_yards': player.rec_yards,
-            'rec_td': player.rec_td,
-            'tackles': player.tackles,
-            'sacks': player.sacks,
-            'interceptions_def': player.interceptions_def,
-            'pass_deflections': player.pass_deflections,
-            'forced_fumbles': player.forced_fumbles,
-            'fg_attempts': player.fg_attempts,
-            'fg_made': player.fg_made,
-            'longest_fg': player.longest_fg,
-            'xp_attempts': player.xp_attempts,
-            'xp_made': player.xp_made,
-            'punt_attempts': player.punt_attempts,
-            'punt_yards': player.punt_yards,
-            'longest_punt': player.longest_punt,
-            'inside_20': player.inside_20
-        }
-        player_stats.append(player_data)
+    if hasattr(team, 'last_game_player_stats') and team.last_game_player_stats:
+        for player_name, game_stats in team.last_game_player_stats.items():
+            # Find player to get position
+            player = next((p for p in team.players if p.name == player_name), None)
+            if not player:
+                continue
+
+            # Only include players who had stats in this game
+            has_stats = any(game_stats.get(stat, 0) > 0 for stat in game_stats)
+            if not has_stats:
+                continue
+
+            player_data = {
+                'name': player_name,
+                'position': player.position,
+                'pass_attempts': game_stats.get('pass_attempts', 0),
+                'pass_completions': game_stats.get('pass_completions', 0),
+                'pass_yards': game_stats.get('pass_yards', 0),
+                'pass_td': game_stats.get('pass_td', 0),
+                'interceptions': game_stats.get('interceptions', 0),
+                'rush_attempts': game_stats.get('rush_attempts', 0),
+                'rush_yards': game_stats.get('rush_yards', 0),
+                'rush_td': game_stats.get('rush_td', 0),
+                'rec_targets': game_stats.get('rec_targets', 0),
+                'rec_catches': game_stats.get('rec_catches', 0),
+                'rec_yards': game_stats.get('rec_yards', 0),
+                'rec_td': game_stats.get('rec_td', 0),
+                'tackles': game_stats.get('tackles', 0),
+                'sacks': game_stats.get('sacks', 0),
+                'interceptions_def': game_stats.get('interceptions_def', 0),
+                'pass_deflections': game_stats.get('pass_deflections', 0),
+                'forced_fumbles': game_stats.get('forced_fumbles', 0),
+                'fg_attempts': game_stats.get('fg_attempts', 0),
+                'fg_made': game_stats.get('fg_made', 0),
+                'longest_fg': game_stats.get('longest_fg', 0),
+                'xp_attempts': game_stats.get('xp_attempts', 0),
+                'xp_made': game_stats.get('xp_made', 0),
+                'punt_attempts': game_stats.get('punt_attempts', 0),
+                'punt_yards': game_stats.get('punt_yards', 0),
+                'longest_punt': game_stats.get('longest_punt', 0),
+                'inside_20': game_stats.get('inside_20', 0)
+            }
+            player_stats.append(player_data)
 
     return jsonify(player_stats)
 
