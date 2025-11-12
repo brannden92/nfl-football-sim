@@ -96,6 +96,18 @@
             <button id="simulateWeekBtn" class="btn btn-primary">Simulate Week & Advance</button>
             <div id="simulateWeekStatus" class="mt-2"></div>
         </div>
+        {% elif is_watching_playoffs %}
+        <div class="alert alert-info">
+            <h5>{{ franchise.playoff_state|title }} Round</h5>
+            {% if user_team.eliminated %}
+            <p>Your team was eliminated from the playoffs. Watch the remaining teams battle for the championship!</p>
+            {% else %}
+            <p>{{ user_team.name }} didn't make the playoffs this year. Watch the playoff teams battle for the championship!</p>
+            {% endif %}
+            <p class="mb-2">Click the button below to simulate the {{ franchise.playoff_state }} round games.</p>
+            <button id="simulatePlayoffBtn" class="btn btn-primary">Simulate {{ franchise.playoff_state|title }} Round</button>
+            <div id="simulatePlayoffStatus" class="mt-2"></div>
+        </div>
         {% else %}
         <div class="alert {% if franchise.season_complete %}alert-success{% else %}alert-info{% endif %}">
             {% if franchise.season_complete %}
@@ -309,6 +321,61 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 statusDiv.innerHTML = '<div class="alert alert-danger mt-2">Error simulating week: ' + error + '</div>';
                 simulateBtn.disabled = false;
+            });
+        });
+    }
+
+    // Handle playoff round simulation
+    const playoffBtn = document.getElementById('simulatePlayoffBtn');
+    if (playoffBtn) {
+        playoffBtn.addEventListener('click', function() {
+            const statusDiv = document.getElementById('simulatePlayoffStatus');
+            statusDiv.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div> Simulating playoff round...';
+            playoffBtn.disabled = true;
+
+            fetch('/api/simulate-playoff-round', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let message = data.previous_round.charAt(0).toUpperCase() + data.previous_round.slice(1) + ' round complete!';
+                    if (data.season_complete) {
+                        message += ' Season complete!';
+                    } else if (data.playoff_state) {
+                        message += ' Advancing to ' + data.playoff_state + ' round...';
+                    }
+
+                    // Show game results
+                    if (data.games && data.games.length > 0) {
+                        message += '<div class="mt-2"><strong>Results:</strong><ul class="text-start">';
+                        data.games.forEach(game => {
+                            message += '<li>' + game.team1 + ' ' + game.team1_score + ' - ' + game.team2_score + ' ' + game.team2;
+                            if (game.champion) {
+                                message += ' <strong>(Champion: ' + game.champion + '!)</strong>';
+                            }
+                            message += '</li>';
+                        });
+                        message += '</ul></div>';
+                    }
+
+                    statusDiv.innerHTML = '<div class="alert alert-success mt-2">' + message + '</div>';
+
+                    // Reload page after delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    statusDiv.innerHTML = '<div class="alert alert-danger mt-2">Error: ' + (data.error || 'Unknown error') + '</div>';
+                    playoffBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = '<div class="alert alert-danger mt-2">Error simulating playoff round: ' + error + '</div>';
+                playoffBtn.disabled = false;
             });
         });
     }
