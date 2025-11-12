@@ -1057,6 +1057,187 @@ def api_simulate_playoff_round():
     })
 
 
+@app.route('/api/sim-to-offseason', methods=['POST'])
+def api_sim_to_offseason():
+    """API endpoint to simulate all remaining playoff rounds and complete the season"""
+    franchise = get_franchise()
+    if not franchise:
+        return jsonify({'error': 'No franchise found'}), 404
+
+    if not franchise.playoff_state or franchise.season_complete:
+        return jsonify({'error': 'No playoff games to simulate'}), 400
+
+    user_team = get_user_team(franchise)
+    all_rounds = []
+    champion = None
+
+    # Keep simulating rounds until season is complete
+    max_iterations = 10  # Safety limit
+    iteration = 0
+
+    while not franchise.season_complete and iteration < max_iterations:
+        iteration += 1
+
+        playoff_teams = [t for t in franchise.teams if hasattr(t, 'playoff_seed') and t.playoff_seed is not None]
+        current_round = franchise.playoff_state
+        round_games = []
+
+        if franchise.playoff_state == 'wildcard':
+            # Simulate wild card games
+            for conf in ['afc', 'nfc']:
+                matchups = franchise.playoff_bracket['wildcard'][conf]
+                for matchup in matchups:
+                    team1 = next((t for t in playoff_teams
+                                if t.league == conf.upper() and t.playoff_seed == matchup['seed1']), None)
+                    team2 = next((t for t in playoff_teams
+                                if t.league == conf.upper() and t.playoff_seed == matchup['seed2']), None)
+
+                    if team1 and team2:
+                        winner = simulate_game(team1, team2, user_team=None, is_playoff=True)
+                        round_games.append({
+                            'team1': team1.name,
+                            'team1_score': team1.score,
+                            'team2': team2.name,
+                            'team2_score': team2.score
+                        })
+
+            # Collect wild card winners and advance
+            for conf in ['afc', 'nfc']:
+                winners = [t for t in franchise.teams
+                          if t.league == conf.upper()
+                          and hasattr(t, 'playoff_seed')
+                          and t.playoff_seed is not None
+                          and not t.eliminated
+                          and t.playoff_wins > 0]
+
+                seed1 = next((t for t in franchise.teams
+                             if t.league == conf.upper() and t.playoff_seed == 1), None)
+                if seed1 and not seed1.eliminated:
+                    winners.insert(0, seed1)
+
+                franchise.playoff_bracket['wildcard_winners'][conf] = winners
+
+            for conf in ['afc', 'nfc']:
+                winners = franchise.playoff_bracket['wildcard_winners'][conf]
+                if len(winners) >= 4:
+                    seeds = sorted([t.playoff_seed for t in winners])
+                    franchise.playoff_bracket['divisional'][conf] = [
+                        {'seed1': seeds[0], 'seed2': seeds[3]},
+                        {'seed1': seeds[1], 'seed2': seeds[2]}
+                    ]
+
+            franchise.playoff_state = 'divisional'
+            all_rounds.append({'round': 'Wild Card', 'games': round_games})
+
+        elif franchise.playoff_state == 'divisional':
+            # Simulate divisional games
+            for conf in ['afc', 'nfc']:
+                matchups = franchise.playoff_bracket['divisional'][conf]
+                for matchup in matchups:
+                    team1 = next((t for t in playoff_teams
+                                if t.league == conf.upper() and t.playoff_seed == matchup['seed1']), None)
+                    team2 = next((t for t in playoff_teams
+                                if t.league == conf.upper() and t.playoff_seed == matchup['seed2']), None)
+
+                    if team1 and team2 and not team1.eliminated and not team2.eliminated:
+                        winner = simulate_game(team1, team2, user_team=None, is_playoff=True)
+                        round_games.append({
+                            'team1': team1.name,
+                            'team1_score': team1.score,
+                            'team2': team2.name,
+                            'team2_score': team2.score
+                        })
+
+            # Collect divisional winners and advance
+            for conf in ['afc', 'nfc']:
+                winners = [t for t in franchise.teams
+                          if t.league == conf.upper()
+                          and hasattr(t, 'playoff_seed')
+                          and not t.eliminated
+                          and t.playoff_wins >= 2]
+                franchise.playoff_bracket['divisional_winners'][conf] = winners
+
+            for conf in ['afc', 'nfc']:
+                winners = franchise.playoff_bracket['divisional_winners'][conf]
+                if len(winners) >= 2:
+                    seeds = sorted([t.playoff_seed for t in winners])
+                    franchise.playoff_bracket['conference'][conf] = [
+                        {'seed1': seeds[0], 'seed2': seeds[1]}
+                    ]
+
+            franchise.playoff_state = 'conference'
+            all_rounds.append({'round': 'Divisional', 'games': round_games})
+
+        elif franchise.playoff_state == 'conference':
+            # Simulate conference championships
+            for conf in ['afc', 'nfc']:
+                matchups = franchise.playoff_bracket['conference'][conf]
+                if matchups:
+                    matchup = matchups[0]
+                    team1 = next((t for t in playoff_teams
+                                if t.league == conf.upper() and t.playoff_seed == matchup['seed1']), None)
+                    team2 = next((t for t in playoff_teams
+                                if t.league == conf.upper() and t.playoff_seed == matchup['seed2']), None)
+
+                    if team1 and team2 and not team1.eliminated and not team2.eliminated:
+                        winner = simulate_game(team1, team2, user_team=None, is_playoff=True)
+                        round_games.append({
+                            'team1': team1.name,
+                            'team1_score': team1.score,
+                            'team2': team2.name,
+                            'team2_score': team2.score
+                        })
+
+            # Collect conference champions and advance
+            afc_champ = next((t for t in franchise.teams
+                             if t.league == 'AFC' and not t.eliminated and t.playoff_wins >= 3), None)
+            nfc_champ = next((t for t in franchise.teams
+                             if t.league == 'NFC' and not t.eliminated and t.playoff_wins >= 3), None)
+
+            if afc_champ and nfc_champ:
+                franchise.playoff_bracket['superbowl'] = [{
+                    'seed1': afc_champ.playoff_seed,
+                    'seed2': nfc_champ.playoff_seed,
+                    'conf1': 'AFC',
+                    'conf2': 'NFC'
+                }]
+                franchise.playoff_state = 'superbowl'
+
+            all_rounds.append({'round': 'Conference Championship', 'games': round_games})
+
+        elif franchise.playoff_state == 'superbowl':
+            # Simulate Super Bowl
+            superbowl = franchise.playoff_bracket['superbowl'][0]
+            afc_team = next((t for t in franchise.teams
+                            if t.league == 'AFC' and t.playoff_seed == superbowl['seed1']), None)
+            nfc_team = next((t for t in franchise.teams
+                            if t.league == 'NFC' and t.playoff_seed == superbowl['seed2']), None)
+
+            if afc_team and nfc_team:
+                winner = simulate_game(afc_team, nfc_team, user_team=None, is_playoff=True)
+                champion = winner.name
+                round_games.append({
+                    'team1': afc_team.name,
+                    'team1_score': afc_team.score,
+                    'team2': nfc_team.name,
+                    'team2_score': nfc_team.score,
+                    'champion': champion
+                })
+
+            franchise.season_complete = True
+            all_rounds.append({'round': 'Super Bowl', 'games': round_games})
+
+    # Save franchise
+    save_current_franchise(franchise)
+
+    return jsonify({
+        'success': True,
+        'season_complete': franchise.season_complete,
+        'champion': champion,
+        'rounds': all_rounds
+    })
+
+
 @app.route('/standings')
 def standings():
     """View league standings"""
