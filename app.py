@@ -31,9 +31,12 @@ def get_franchise():
             # Compatibility: Add schedule if it doesn't exist (for old saves)
             if not hasattr(franchise, 'schedule') or not franchise.schedule:
                 from utils.schedule import generate_season_schedule
+                print(f"\n*** GENERATING NEW SCHEDULE for franchise at week {franchise.current_week} ***")
                 franchise.schedule = generate_season_schedule(franchise.teams)
+                print(f"*** Schedule generated with weeks: {sorted(franchise.schedule.keys())} ***\n")
 
                 # Mark past weeks as played (for mid-season migrations)
+                past_weeks_marked = 0
                 for week in range(1, franchise.current_week):
                     if week in franchise.schedule:
                         for matchup in franchise.schedule[week]:
@@ -41,6 +44,10 @@ def get_franchise():
                             # Set placeholder scores for past games
                             matchup['home_score'] = matchup['home'].score
                             matchup['away_score'] = matchup['away'].score
+                        past_weeks_marked += 1
+
+                if past_weeks_marked > 0:
+                    print(f"*** Marked {past_weeks_marked} past weeks as played ***\n")
 
             # Compatibility: Ensure all teams have last_game_player_stats
             for team in franchise.teams:
@@ -413,10 +420,29 @@ def index():
         from utils.schedule import get_next_opponent as schedule_get_next_opponent
 
         # Debug: Check schedule status
+        print(f"\n{'='*60}")
         print(f"DEBUG: Current week: {franchise.current_week}, SEASON_GAMES: {SEASON_GAMES}")
         print(f"DEBUG: Schedule has weeks: {sorted(franchise.schedule.keys())}")
-        if franchise.current_week not in franchise.schedule:
+
+        if franchise.current_week in franchise.schedule:
+            week_matchups = franchise.schedule[franchise.current_week]
+            print(f"DEBUG: Week {franchise.current_week} has {len(week_matchups)} matchups")
+
+            # Find user's matchup
+            user_matchup = None
+            for matchup in week_matchups:
+                if matchup['home'].name == user_team.name or matchup['away'].name == user_team.name:
+                    user_matchup = matchup
+                    break
+
+            if user_matchup:
+                opp_name = user_matchup['away'].name if user_matchup['home'].name == user_team.name else user_matchup['home'].name
+                print(f"DEBUG: User ({user_team.name}) plays {opp_name} this week")
+            else:
+                print(f"DEBUG: User ({user_team.name}) has no matchup this week (BYE week?)")
+        else:
             print(f"WARNING: Week {franchise.current_week} not in schedule!")
+        print(f"{'='*60}\n")
 
         next_opponent = schedule_get_next_opponent(franchise, user_team.name)
         if next_opponent:
@@ -504,12 +530,13 @@ def simulate():
 
     user_team = get_user_team(franchise)
 
-    # Get opponent (simplified - needs proper scheduling)
-    available = [t for t in franchise.teams if t != user_team and t.league == user_team.league]
-    if not available:
-        return redirect(url_for('index'))
+    # Get opponent from schedule
+    from utils.schedule import get_next_opponent as schedule_get_next_opponent
+    opponent = schedule_get_next_opponent(franchise, user_team.name)
 
-    opponent = available[(franchise.current_week - 1) % len(available)]
+    if not opponent:
+        # No opponent (BYE week or season over) - redirect to home
+        return redirect(url_for('index'))
 
     games_played = franchise.current_week - 1
 
