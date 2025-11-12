@@ -4,6 +4,7 @@ Flask web application for NFL Football Simulation
 from flask import Flask, render_template, session, redirect, url_for, jsonify, request
 import pickle
 import os
+import random
 from models import Franchise
 from game import simulate_game, run_playoffs
 from utils import (
@@ -25,7 +26,51 @@ def get_franchise():
     """Get current franchise from session or file"""
     if os.path.exists(FRANCHISE_FILE):
         with open(FRANCHISE_FILE, 'rb') as f:
-            return pickle.load(f)
+            franchise = pickle.load(f)
+
+            # Compatibility: Add schedule if it doesn't exist (for old saves)
+            if not hasattr(franchise, 'schedule') or not franchise.schedule:
+                from utils.schedule import generate_season_schedule
+                franchise.schedule = generate_season_schedule(franchise.teams)
+
+            # Compatibility: Ensure all teams have last_game_player_stats
+            for team in franchise.teams:
+                if not hasattr(team, 'last_game_player_stats'):
+                    team.last_game_player_stats = {}
+
+                # Compatibility: Ensure all players have returning attribute
+                for player in team.players:
+                    if not hasattr(player, 'returning'):
+                        # Set returning skill based on position
+                        if player.position in ["RB", "WR", "CB"]:
+                            player.returning = min(99, max(60, player.skill + random.randint(-5, 5)))
+                            player.returning_potential = min(99, player.returning + random.randint(5, 15))
+                        else:
+                            player.returning = min(75, max(40, player.skill - 10 + random.randint(-5, 5)))
+                            player.returning_potential = min(80, player.returning + random.randint(3, 10))
+
+                    # Ensure return stats exist
+                    if not hasattr(player, 'kickoff_returns'):
+                        player.kickoff_returns = 0
+                        player.kickoff_return_yards = 0
+                        player.longest_kickoff_return = 0
+                        player.punt_returns = 0
+                        player.punt_return_yards = 0
+                        player.longest_punt_return = 0
+
+                        # Add to career stats if missing
+                        if 'kickoff_returns' not in player.career_stats:
+                            player.career_stats['kickoff_returns'] = 0
+                            player.career_stats['kickoff_return_yards'] = 0
+                            player.career_stats['longest_kickoff_return'] = 0
+                            player.career_stats['punt_returns'] = 0
+                            player.career_stats['punt_return_yards'] = 0
+                            player.career_stats['longest_punt_return'] = 0
+
+            # Save the updated franchise
+            save_current_franchise(franchise)
+
+            return franchise
     return None
 
 
