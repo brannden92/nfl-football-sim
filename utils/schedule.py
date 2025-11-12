@@ -76,41 +76,32 @@ def generate_season_schedule(teams):
     # Shuffle non-division matchups
     random.shuffle(non_division_matchups)
 
-    # Combine all matchups
+    # Combine all matchups - keep as list of tuples
     all_matchups = division_matchups + non_division_matchups
+    unscheduled_matchups = all_matchups.copy()
 
     # Step 3: Distribute matchups across weeks
-    week = 1
-    matchup_idx = 0
-
-    while matchup_idx < len(all_matchups) and week <= 18:
+    for week in range(1, 19):
         week_matchups = []
         teams_this_week = set()
 
-        # Add matchups to this week
-        attempts = 0
-        while matchup_idx < len(all_matchups) and attempts < len(all_matchups) * 2:
-            home_team, away_team, is_division = all_matchups[matchup_idx]
+        # Try to schedule matchups for this week
+        matchups_to_remove = []
 
+        for i, (home_team, away_team, is_division) in enumerate(unscheduled_matchups):
             # Check if either team already playing this week
             if home_team.name in teams_this_week or away_team.name in teams_this_week:
-                matchup_idx += 1
-                attempts += 1
                 continue
 
             # Check if either team has BYE this week
             if team_bye_week.get(home_team.name) == week or team_bye_week.get(away_team.name) == week:
-                matchup_idx += 1
-                attempts += 1
                 continue
 
             # Check if teams have already played enough games
             if len(team_games[home_team.name]) >= 17 or len(team_games[away_team.name]) >= 17:
-                matchup_idx += 1
-                attempts += 1
                 continue
 
-            # Add this matchup
+            # This matchup can be scheduled!
             week_matchups.append({
                 'home': home_team,
                 'away': away_team,
@@ -126,11 +117,17 @@ def generate_season_schedule(teams):
             team_opponents[home_team.name].add(away_team.name)
             team_opponents[away_team.name].add(home_team.name)
 
-            matchup_idx += 1
-            attempts = 0
+            matchups_to_remove.append(i)
+
+        # Remove scheduled matchups from unscheduled list (in reverse order to preserve indices)
+        for i in reversed(matchups_to_remove):
+            unscheduled_matchups.pop(i)
 
         schedule[week] = week_matchups
-        week += 1
+
+    # If there are still unscheduled matchups, log a warning
+    if unscheduled_matchups:
+        print(f"\n*** WARNING: {len(unscheduled_matchups)} matchups could not be scheduled! ***\n")
 
     # Debug: Validate schedule - count games per team
     team_game_counts = {}
