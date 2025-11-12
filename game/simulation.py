@@ -134,17 +134,19 @@ def attempt_field_goal(kicker, distance):
 
 def get_best_returner(team):
     """Get the best kickoff/punt returner from team (RB/WR/CB with highest returning skill)"""
-    returner_positions = ["RB", "WR", "CB"]
     potential_returners = []
 
-    # Check starters in returner positions
-    for position in returner_positions:
-        if position == "RB" and team.rb_starters:
-            potential_returners.extend(team.rb_starters)
-        elif position == "WR" and team.wr_starters:
-            potential_returners.extend(team.wr_starters)
-        elif position == "CB" and team.cb_starters:
-            potential_returners.extend(team.cb_starters)
+    # Get RB and WR starters
+    if team.rb_starters:
+        potential_returners.extend(team.rb_starters)
+    if team.wr_starters:
+        potential_returners.extend(team.wr_starters)
+
+    # Get CBs from defense starters (check position attribute)
+    if team.defense_starters:
+        for player in team.defense_starters:
+            if player.position == "CB":
+                potential_returners.append(player)
 
     # Find best returner by returning skill
     if potential_returners:
