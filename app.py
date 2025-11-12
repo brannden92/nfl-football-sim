@@ -258,8 +258,7 @@ def _simulate_playoff_round(franchise, user_team, user_opponent, other_games):
 def _advance_playoff_bracket(franchise, user_team):
     """Advance playoff bracket after user's game"""
     if user_team.eliminated:
-        # User lost - season over
-        franchise.season_complete = True
+        # User lost - don't set season_complete yet, let them watch remaining playoffs
         return
 
     user_conf = user_team.league.lower()
@@ -317,11 +316,11 @@ def _advance_playoff_bracket(franchise, user_team):
         franchise.playoff_state = 'conference'
 
     elif franchise.playoff_state == 'conference':
-        # Collect conference champions
+        # Collect conference champions (>= 2 wins: BYE teams have 2 after Conference win)
         afc_champ = next((t for t in franchise.teams
-                         if t.league == 'AFC' and not t.eliminated and t.playoff_wins >= 3), None)
+                         if t.league == 'AFC' and not t.eliminated and t.playoff_wins >= 2), None)
         nfc_champ = next((t for t in franchise.teams
-                         if t.league == 'NFC' and not t.eliminated and t.playoff_wins >= 3), None)
+                         if t.league == 'NFC' and not t.eliminated and t.playoff_wins >= 2), None)
 
         if afc_champ and nfc_champ:
             franchise.playoff_bracket['superbowl'] = [{
@@ -1045,11 +1044,11 @@ def api_simulate_playoff_round():
                         'playoff_round': 'Conference Championship'
                     })
 
-        # Collect conference champions
+        # Collect conference champions (>= 2 wins: BYE teams have 2 after Conference win)
         afc_champ = next((t for t in franchise.teams
-                         if t.league == 'AFC' and not t.eliminated and t.playoff_wins >= 3), None)
+                         if t.league == 'AFC' and not t.eliminated and t.playoff_wins >= 2), None)
         nfc_champ = next((t for t in franchise.teams
-                         if t.league == 'NFC' and not t.eliminated and t.playoff_wins >= 3), None)
+                         if t.league == 'NFC' and not t.eliminated and t.playoff_wins >= 2), None)
 
         if afc_champ and nfc_champ:
             franchise.playoff_bracket['superbowl'] = [{
