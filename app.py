@@ -302,7 +302,7 @@ def _advance_playoff_bracket(franchise, user_team):
                       if t.league == conf.upper()
                       and hasattr(t, 'playoff_seed')
                       and not t.eliminated
-                      and t.playoff_wins >= 2]  # Won wild card + divisional
+                      and t.playoff_wins >= 1]  # At least 1 playoff win (includes BYE teams)
             franchise.playoff_bracket['divisional_winners'][conf] = winners
 
         # Generate conference championship matchups
@@ -479,8 +479,8 @@ def index():
                            not franchise.season_complete and
                            (user_team.eliminated or not hasattr(user_team, 'playoff_seed') or user_team.playoff_seed is None))
 
-    # Detect playoff BYE (user is in playoffs, has seed, but no opponent - like #1 or #2 seed in Wild Card round)
-    is_playoff_bye = (franchise.playoff_state and
+    # Detect playoff BYE (user is in playoffs, has seed, but no opponent - ONLY for Wild Card round)
+    is_playoff_bye = (franchise.playoff_state == 'wildcard' and
                      not franchise.season_complete and
                      not user_team.eliminated and
                      hasattr(user_team, 'playoff_seed') and
@@ -982,7 +982,7 @@ def api_simulate_playoff_round():
                       if t.league == conf.upper()
                       and hasattr(t, 'playoff_seed')
                       and not t.eliminated
-                      and t.playoff_wins >= 2]
+                      and t.playoff_wins >= 1]  # At least 1 playoff win (includes BYE teams)
             franchise.playoff_bracket['divisional_winners'][conf] = winners
 
         # Generate conference championship matchups
@@ -1163,7 +1163,7 @@ def api_sim_to_offseason():
                           if t.league == conf.upper()
                           and hasattr(t, 'playoff_seed')
                           and not t.eliminated
-                          and t.playoff_wins >= 2]
+                          and t.playoff_wins >= 1]  # At least 1 playoff win (includes BYE teams)
                 franchise.playoff_bracket['divisional_winners'][conf] = winners
 
             for conf in ['afc', 'nfc']:
