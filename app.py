@@ -728,6 +728,112 @@ def api_simulate_game():
         })
 
 
+@app.route('/api/quick-sim-week', methods=['POST'])
+def api_quick_sim_week():
+    """API endpoint to quickly simulate user's game and all other games in the week"""
+    franchise = get_franchise()
+    if not franchise:
+        return jsonify({'error': 'No franchise found'}), 404
+
+    user_team = get_user_team(franchise)
+
+    # Determine if this is a playoff game
+    is_playoff = franchise.playoff_state is not None and franchise.current_week > SEASON_GAMES
+
+    user_result = None
+
+    if is_playoff:
+        # Playoff game
+        opponent = _get_playoff_opponent(franchise, user_team)
+        if not opponent:
+            return jsonify({'error': 'No playoff opponent found'}), 400
+
+        # Simulate user's playoff game
+        winner = simulate_game(user_team, opponent, user_team=user_team.name, is_playoff=True)
+
+        user_result = {
+            'opponent': opponent.name,
+            'user_score': user_team.score,
+            'opponent_score': opponent.score,
+            'won': winner.name == user_team.name
+        }
+
+        # Simulate other playoff games in this round
+        other_games = []
+        _simulate_playoff_round(franchise, user_team, opponent, other_games)
+
+        # Advance playoff state
+        _advance_playoff_bracket(franchise, user_team)
+
+    else:
+        # Regular season game
+        from utils.schedule import get_next_opponent as schedule_get_next_opponent
+        opponent = schedule_get_next_opponent(franchise, user_team.name)
+
+        if not opponent:
+            # BYE week - just advance
+            franchise.current_week += 1
+            save_current_franchise(franchise)
+            return jsonify({
+                'success': True,
+                'bye_week': True,
+                'current_week': franchise.current_week
+            })
+
+        # Simulate the user's game
+        winner = simulate_game(user_team, opponent, user_team=user_team.name, is_playoff=False)
+
+        user_result = {
+            'opponent': opponent.name,
+            'user_score': user_team.score,
+            'opponent_score': opponent.score,
+            'won': winner.name == user_team.name
+        }
+
+        # Update schedule to mark game as played
+        if franchise.current_week in franchise.schedule:
+            for matchup in franchise.schedule[franchise.current_week]:
+                if matchup['home'].name == user_team.name and matchup['away'].name == opponent.name:
+                    matchup['played'] = True
+                    matchup['home_score'] = user_team.score
+                    matchup['away_score'] = opponent.score
+                    break
+                elif matchup['away'].name == user_team.name and matchup['home'].name == opponent.name:
+                    matchup['played'] = True
+                    matchup['home_score'] = opponent.score
+                    matchup['away_score'] = user_team.score
+                    break
+
+        # Simulate all other games in the week
+        if franchise.current_week in franchise.schedule:
+            for matchup in franchise.schedule[franchise.current_week]:
+                home = matchup['home']
+                away = matchup['away']
+
+                # Skip if already played (user's game)
+                if matchup['played']:
+                    continue
+
+                # Simulate this game
+                game_winner = simulate_game(home, away, user_team=None, is_playoff=False)
+                matchup['played'] = True
+                matchup['home_score'] = home.score
+                matchup['away_score'] = away.score
+
+        # Advance week
+        franchise.current_week += 1
+
+    # Save franchise
+    save_current_franchise(franchise)
+
+    return jsonify({
+        'success': True,
+        'user_result': user_result,
+        'current_week': franchise.current_week,
+        'is_playoff': is_playoff
+    })
+
+
 @app.route('/api/simulate-week', methods=['POST'])
 def api_simulate_week():
     """API endpoint to simulate all games in the week and advance (used for BYE weeks)"""
