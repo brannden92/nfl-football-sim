@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="search-section">
+    <h2>Search NFL Player</h2>
+    <div class="search-box">
+        <input type="text" id="playerSearch" placeholder="Enter player name (e.g., Patrick Mahomes, Josh Allen)" autocomplete="off">
+        <button id="searchBtn" onclick="searchPlayer()">Search</button>
+    </div>
+    <div id="searchResults" class="search-results"></div>
+</div>
+
+<div id="playerProfile" class="player-profile" style="display: none;">
+    <!-- Player Header -->
+    <div class="player-header">
+        <h2 id="playerName"></h2>
+        <div class="player-meta">
+            <span id="playerTeam" class="badge"></span>
+            <span id="playerPosition" class="badge badge-position"></span>
+        </div>
+    </div>
+
+    <!-- Season Stats -->
+    <section class="stats-section">
+        <h3>2024 Season Statistics</h3>
+        <div id="seasonStats" class="stats-grid"></div>
+    </section>
+
+    <!-- Upcoming Game Info -->
+    <section class="matchup-section" id="matchupSection" style="display: none;">
+        <h3>🎯 Next Matchup Analysis</h3>
+
+        <div class="matchup-grid">
+            <!-- Opponent Info -->
+            <div class="card">
+                <h4>Opponent</h4>
+                <div id="opponentInfo"></div>
+            </div>
+
+            <!-- Weather -->
+            <div class="card" id="weatherCard" style="display: none;">
+                <h4>⛅ Game Weather</h4>
+                <div id="weatherInfo"></div>
+            </div>
+        </div>
+
+        <!-- Defensive Stats -->
+        <div class="card" id="defenseCard" style="display: none;">
+            <h4>🛡️ Opponent Defensive Stats (Per Game)</h4>
+            <div id="defensiveStats" class="stats-grid"></div>
+        </div>
+
+        <!-- Injuries -->
+        <div class="card" id="injuriesCard" style="display: none;">
+            <h4>🏥 Defensive Injuries</h4>
+            <div id="injuryList"></div>
+        </div>
+    </section>
+
+    <!-- Game Log -->
+    <section class="game-log-section">
+        <h3>📊 2024 Game Log</h3>
+        <div class="table-container">
+            <table id="gameLogTable">
+                <thead>
+                    <tr>
+                        <th>Week</th>
+                        <th>Opponent</th>
+                        <th>Pass Yds</th>
+                        <th>Pass TD</th>
+                        <th>INT</th>
+                        <th>Rush Yds</th>
+                        <th>Rush TD</th>
+                        <th>Rec</th>
+                        <th>Rec Yds</th>
+                        <th>Rec TD</th>
+                        <th>Fantasy (PPR)</th>
+                    </tr>
+                </thead>
+                <tbody id="gameLogBody">
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Betting Insights -->
+    <section class="insights-section">
+        <h3>💡 Betting Insights</h3>
+        <div id="insights" class="insights-content">
+            <p>Analysis will appear here based on the data above.</p>
+        </div>
+    </section>
+</div>
+
+<div id="loading" class="loading" style="display: none;">
+    <div class="spinner"></div>
+    <p>Loading player data...</p>
+</div>
+
+<div id="errorMessage" class="error-message" style="display: none;"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Search functionality
+let searchTimeout;
+
+document.getElementById('playerSearch').addEventListener('input', function(e) {
+    clearTimeout(searchTimeout);
+    const query = e.target.value.trim();
+
+    if (query.length < 2) {
+        document.getElementById('searchResults').innerHTML = '';
+        return;
+    }
+
+    searchTimeout = setTimeout(() => searchPlayer(), 300);
+});
+
+document.getElementById('playerSearch').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchPlayer();
+    }
+});
+
+function searchPlayer() {
+    const query = document.getElementById('playerSearch').value.trim();
+
+    if (query.length < 2) {
+        showError('Please enter at least 2 characters');
+        return;
+    }
+
+    showLoading(true);
+
+    fetch('/search', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ player_name: query })
+    })
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        displaySearchResults(data.players);
+    })
+    .catch(error => {
+        showLoading(false);
+        showError('Error searching for players');
+        console.error('Error:', error);
+    });
+}
+
+function displaySearchResults(players) {
+    const resultsDiv = document.getElementById('searchResults');
+
+    if (!players || players.length === 0) {
+        resultsDiv.innerHTML = '<div class="no-results">No players found</div>';
+        return;
+    }
+
+    let html = '<div class="results-list">';
+    players.forEach(player => {
+        const team = player.team || 'FA';
+        const position = player.position || 'N/A';
+        const playerId = player.gsis_id || player.player_id;
+
+        html += `
+            <div class="result-item" onclick="loadPlayerProfile('${playerId}')">
+                <div class="result-name">${player.name}</div>
+                <div class="result-meta">
+                    <span class="badge">${team}</span>
+                    <span class="badge badge-position">${position}</span>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    resultsDiv.innerHTML = html;
+}
+
+function loadPlayerProfile(playerId) {
+    document.getElementById('searchResults').innerHTML = '';
+    showLoading(true);
+
+    fetch(`/player/${playerId}`)
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        displayPlayerProfile(data);
+    })
+    .catch(error => {
+        showLoading(false);
+        showError('Error loading player profile');
+        console.error('Error:', error);
+    });
+}
+
+function displayPlayerProfile(data) {
+    const profile = document.getElementById('playerProfile');
+    profile.style.display = 'block';
+
+    // Player header
+    document.getElementById('playerName').textContent = data.player.name;
+    document.getElementById('playerTeam').textContent = data.player.team;
+    document.getElementById('playerPosition').textContent = data.player.position;
+
+    // Season stats
+    displaySeasonStats(data.season_stats, data.player.position);
+
+    // Matchup info
+    if (data.opponent_info) {
+        displayMatchupInfo(data.opponent_info, data.defensive_stats, data.injuries, data.weather);
+    }
+
+    // Game log
+    displayGameLog(data.game_log);
+
+    // Generate insights
+    generateInsights(data);
+
+    // Scroll to profile
+    profile.scrollIntoView({ behavior: 'smooth' });
+}
+
+function displaySeasonStats(stats, position) {
+    const container = document.getElementById('seasonStats');
+
+    if (!stats) {
+        container.innerHTML = '<p>No season stats available</p>';
+        return;
+    }
+
+    let html = '';
+
+    // Show relevant stats based on position
+    if (position === 'QB') {
+        html = `
+            <div class="stat-card">
+                <div class="stat-value">${stats.passing_yards || 0}</div>
+                <div class="stat-label">Passing Yards</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.passing_tds || 0}</div>
+                <div class="stat-label">Passing TDs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.interceptions || 0}</div>
+                <div class="stat-label">INTs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.completions || 0}/${stats.attempts || 0}</div>
+                <div class="stat-label">Comp/Att</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.rushing_yards || 0}</div>
+                <div class="stat-label">Rush Yards</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.rushing_tds || 0}</div>
+                <div class="stat-label">Rush TDs</div>
+            </div>
+        `;
+    } else if (position === 'RB') {
+        html = `
+            <div class="stat-card">
+                <div class="stat-value">${stats.rushing_yards || 0}</div>
+                <div class="stat-label">Rushing Yards</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.rushing_tds || 0}</div>
+                <div class="stat-label">Rushing TDs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.carries || 0}</div>
+                <div class="stat-label">Carries</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.receptions || 0}</div>
+                <div class="stat-label">Receptions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.receiving_yards || 0}</div>
+                <div class="stat-label">Rec Yards</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.receiving_tds || 0}</div>
+                <div class="stat-label">Rec TDs</div>
+            </div>
+        `;
+    } else if (['WR', 'TE'].includes(position)) {
+        html = `
+            <div class="stat-card">
+                <div class="stat-value">${stats.receptions || 0}</div>
+                <div class="stat-label">Receptions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.receiving_yards || 0}</div>
+                <div class="stat-label">Receiving Yards</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.receiving_tds || 0}</div>
+                <div class="stat-label">Receiving TDs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.targets || 0}</div>
+                <div class="stat-label">Targets</div>
+            </div>
+        `;
+    }
+
+    html += `
+        <div class="stat-card highlight">
+            <div class="stat-value">${(stats.fantasy_points_ppr || 0).toFixed(1)}</div>
+            <div class="stat-label">Fantasy Points (PPR)</div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+function displayMatchupInfo(opponent, defenseStats, injuries, weather) {
+    const section = document.getElementById('matchupSection');
+    section.style.display = 'block';
+
+    // Opponent info
+    const opponentDiv = document.getElementById('opponentInfo');
+    opponentDiv.innerHTML = `
+        <p class="opponent-name">${opponent.location} ${opponent.opponent}</p>
+        <p>Week ${opponent.week}</p>
+        <p>${opponent.game_date}</p>
+        <p>${opponent.stadium || 'TBD'}</p>
+    `;
+
+    // Weather
+    if (weather) {
+        const weatherCard = document.getElementById('weatherCard');
+        const weatherDiv = document.getElementById('weatherInfo');
+        weatherCard.style.display = 'block';
+
+        weatherDiv.innerHTML = `
+            <p><strong>Temperature:</strong> ${weather.temp}</p>
+            <p><strong>Conditions:</strong> ${weather.condition}</p>
+            <p><strong>Wind:</strong> ${weather.wind_speed}</p>
+            <p><strong>Precipitation:</strong> ${weather.precipitation}</p>
+        `;
+    }
+
+    // Defensive stats
+    if (defenseStats) {
+        const defCard = document.getElementById('defenseCard');
+        const defDiv = document.getElementById('defensiveStats');
+        defCard.style.display = 'block';
+
+        defDiv.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-value">${defenseStats.points_allowed.toFixed(1)}</div>
+                <div class="stat-label">Fantasy Pts Allowed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${defenseStats.yards_allowed.toFixed(0)}</div>
+                <div class="stat-label">Total Yards Allowed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${defenseStats.passing_yards_allowed.toFixed(0)}</div>
+                <div class="stat-label">Pass Yards Allowed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${defenseStats.rushing_yards_allowed.toFixed(0)}</div>
+                <div class="stat-label">Rush Yards Allowed</div>
+            </div>
+        `;
+    }
+
+    // Injuries
+    if (injuries && injuries.length > 0) {
+        const injCard = document.getElementById('injuriesCard');
+        const injDiv = document.getElementById('injuryList');
+        injCard.style.display = 'block';
+
+        let html = '<ul class="injury-list">';
+        injuries.forEach(injury => {
+            const statusClass = injury.injury_status.toLowerCase().replace(' ', '-');
+            html += `
+                <li>
+                    <span class="injury-player">${injury.player_name}</span>
+                    <span class="injury-position">${injury.position}</span>
+                    <span class="injury-status status-${statusClass}">${injury.injury_status}</span>
+                </li>
+            `;
+        });
+        html += '</ul>';
+
+        injDiv.innerHTML = html;
+    }
+}
+
+function displayGameLog(gameLog) {
+    const tbody = document.getElementById('gameLogBody');
+
+    if (!gameLog || gameLog.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11">No game log data available</td></tr>';
+        return;
+    }
+
+    let html = '';
+    gameLog.forEach(game => {
+        html += `
+            <tr>
+                <td>${game.week || '-'}</td>
+                <td>${game.opponent_team || '-'}</td>
+                <td>${game.passing_yards || 0}</td>
+                <td>${game.passing_tds || 0}</td>
+                <td>${game.interceptions || 0}</td>
+                <td>${game.rushing_yards || 0}</td>
+                <td>${game.rushing_tds || 0}</td>
+                <td>${game.receptions || 0}</td>
+                <td>${game.receiving_yards || 0}</td>
+                <td>${game.receiving_tds || 0}</td>
+                <td class="highlight">${(game.fantasy_points_ppr || 0).toFixed(1)}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function generateInsights(data) {
+    const insightsDiv = document.getElementById('insights');
+
+    let insights = '<ul class="insights-list">';
+
+    // Calculate averages from game log
+    if (data.game_log && data.game_log.length > 0) {
+        const avgFantasy = data.game_log.reduce((sum, g) => sum + (g.fantasy_points_ppr || 0), 0) / data.game_log.length;
+        insights += `<li>📈 Season Average: <strong>${avgFantasy.toFixed(1)} fantasy points per game</strong></li>`;
+
+        // Recent performance (last 3 games)
+        const recent = data.game_log.slice(0, 3);
+        const recentAvg = recent.reduce((sum, g) => sum + (g.fantasy_points_ppr || 0), 0) / recent.length;
+        insights += `<li>🔥 Last 3 Games Average: <strong>${recentAvg.toFixed(1)} points</strong>`;
+
+        if (recentAvg > avgFantasy * 1.1) {
+            insights += ' (Trending UP 📊)';
+        } else if (recentAvg < avgFantasy * 0.9) {
+            insights += ' (Trending DOWN 📉)';
+        }
+        insights += '</li>';
+    }
+
+    // Defensive matchup analysis
+    if (data.defensive_stats && data.season_stats) {
+        const defRank = data.defensive_stats.points_allowed;
+        if (defRank > 20) {
+            insights += '<li>✅ Favorable matchup - Defense allows high fantasy production</li>';
+        } else if (defRank < 15) {
+            insights += '<li>⚠️ Tough matchup - Defense is stingy against this position</li>';
+        }
+    }
+
+    // Weather impact
+    if (data.weather && data.weather.condition) {
+        const condition = data.weather.condition.toLowerCase();
+        if (condition.includes('rain') || condition.includes('snow')) {
+            insights += '<li>🌧️ Weather Alert: Precipitation expected - may impact passing game</li>';
+        }
+        if (data.weather.wind_speed && parseInt(data.weather.wind_speed) > 15) {
+            insights += '<li>💨 Wind Alert: High winds expected - may affect passing accuracy</li>';
+        }
+    }
+
+    // Injury impact
+    if (data.injuries && data.injuries.length > 0) {
+        const outCount = data.injuries.filter(i => i.injury_status === 'Out').length;
+        if (outCount > 0) {
+            insights += `<li>🏥 ${outCount} defensive starters out - may create opportunities</li>`;
+        }
+    }
+
+    insights += '</ul>';
+    insightsDiv.innerHTML = insights;
+}
+
+function showLoading(show) {
+    document.getElementById('loading').style.display = show ? 'flex' : 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 3000);
+}
+</script>
+{% endblock %}
