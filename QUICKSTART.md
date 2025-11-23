@@ -25,13 +25,28 @@ WEATHER_API_KEY=your_key_here
 
 **Note**: The app works without weather - this is optional!
 
-### 3. Run the App
+### 3. (Optional) Set Up Betting Odds API
+
+For live betting odds and player props:
+
+1. Visit: https://the-odds-api.com/
+2. Sign up for a free account (500 requests/month)
+3. Copy your API key
+4. Edit `.env` file and add your key:
+
+```
+ODDS_API_KEY=your_key_here
+```
+
+**Note**: The app works without odds - this is optional but highly recommended for betting analysis!
+
+### 4. Run the App
 
 ```bash
 python app.py
 ```
 
-### 4. Open Your Browser
+### 5. Open Your Browser
 
 Go to: **http://localhost:5000**
 
@@ -48,7 +63,13 @@ Go to: **http://localhost:5000**
 - **Season Stats**: Complete 2024 statistics
 - **Next Matchup**: Upcoming opponent with defensive stats
 - **Injuries**: Defensive players on injury report
-- **Weather**: Game day forecast (if API key configured)
+- **Weather**: Game day forecast (if Weather API key configured)
+- **Live Betting Odds**: Real-time player props from multiple sportsbooks (if Odds API key configured)
+  - Passing yards O/U
+  - Rushing yards O/U
+  - Receiving yards O/U
+  - Touchdown scorer odds
+  - Compare odds across DraftKings, FanDuel, and more
 - **Game Log**: Week-by-week performance
 - **Betting Insights**: Automated analysis
 

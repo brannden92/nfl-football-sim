@@ -375,6 +375,109 @@ td.highlight {
     font-size: 1.05em;
 }
 
+/* Betting Odds Section */
+.odds-section {
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.odds-section h3 {
+    color: var(--primary-color);
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    border-bottom: 3px solid var(--accent-color);
+    padding-bottom: 10px;
+}
+
+.odds-message {
+    margin-bottom: 20px;
+}
+
+.odds-available {
+    color: var(--success-color);
+    font-weight: 500;
+    padding: 10px;
+    background: #d4edda;
+    border-radius: 5px;
+}
+
+.odds-unavailable {
+    color: #856404;
+    font-weight: 500;
+    padding: 10px;
+    background: #fff3cd;
+    border-radius: 5px;
+}
+
+.odds-market-card {
+    background: var(--bg-color);
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border-left: 4px solid var(--secondary-color);
+}
+
+.market-title {
+    color: var(--secondary-color);
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.odds-comparison {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.odds-comparison thead {
+    background: var(--primary-color);
+    color: white;
+}
+
+.odds-comparison th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 500;
+    font-size: 0.9em;
+}
+
+.odds-comparison td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.odds-comparison tbody tr:hover {
+    background: var(--bg-color);
+}
+
+.book-name {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.line-value {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 1.1em;
+}
+
+.odds-value {
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+}
+
+.odds-value.favorite {
+    color: var(--secondary-color);
+    font-weight: 700;
+}
+
 /* Loading Spinner */
 .loading {
     position: fixed;

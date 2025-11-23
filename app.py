@@ -21,7 +21,14 @@ data_cache = {
     'last_update': None
 }
 
+# Cache for betting odds (shorter duration)
+odds_cache = {
+    'data': {},
+    'last_update': {}
+}
+
 CACHE_DURATION = timedelta(hours=1)
+ODDS_CACHE_DURATION = timedelta(minutes=15)  # Odds change frequently
 
 def update_cache():
     """Update the data cache if needed"""
@@ -320,6 +327,151 @@ def get_weather_forecast(city, game_date):
             'precipitation': 'N/A'
         }
 
+def get_player_betting_odds(player_name, team_abbr=None):
+    """Get betting odds and player props from The Odds API"""
+    odds_api_key = os.getenv('ODDS_API_KEY')
+
+    if not odds_api_key:
+        return {
+            'available': False,
+            'message': 'Odds API key not configured. Get a free key at https://the-odds-api.com',
+            'props': []
+        }
+
+    # Check cache first
+    cache_key = f"{player_name}_{team_abbr}"
+    current_time = datetime.now()
+
+    if cache_key in odds_cache['data'] and cache_key in odds_cache['last_update']:
+        if (current_time - odds_cache['last_update'][cache_key]) < ODDS_CACHE_DURATION:
+            return odds_cache['data'][cache_key]
+
+    try:
+        # Get NFL events
+        events_url = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events"
+        events_params = {
+            'apiKey': odds_api_key,
+            'dateFormat': 'iso'
+        }
+
+        events_response = requests.get(events_url, params=events_params, timeout=10)
+
+        if events_response.status_code != 200:
+            print(f"Odds API error: {events_response.status_code}")
+            return {
+                'available': False,
+                'message': f'Odds API error: {events_response.status_code}',
+                'props': []
+            }
+
+        events = events_response.json()
+
+        # Find upcoming event for the team
+        event_id = None
+        if team_abbr and events:
+            team_name_map = {
+                'ARI': 'Arizona Cardinals', 'ATL': 'Atlanta Falcons', 'BAL': 'Baltimore Ravens',
+                'BUF': 'Buffalo Bills', 'CAR': 'Carolina Panthers', 'CHI': 'Chicago Bears',
+                'CIN': 'Cincinnati Bengals', 'CLE': 'Cleveland Browns', 'DAL': 'Dallas Cowboys',
+                'DEN': 'Denver Broncos', 'DET': 'Detroit Lions', 'GB': 'Green Bay Packers',
+                'HOU': 'Houston Texans', 'IND': 'Indianapolis Colts', 'JAX': 'Jacksonville Jaguars',
+                'KC': 'Kansas City Chiefs', 'LAC': 'Los Angeles Chargers', 'LAR': 'Los Angeles Rams',
+                'LV': 'Las Vegas Raiders', 'MIA': 'Miami Dolphins', 'MIN': 'Minnesota Vikings',
+                'NE': 'New England Patriots', 'NO': 'New Orleans Saints', 'NYG': 'New York Giants',
+                'NYJ': 'New York Jets', 'PHI': 'Philadelphia Eagles', 'PIT': 'Pittsburgh Steelers',
+                'SEA': 'Seattle Seahawks', 'SF': 'San Francisco 49ers', 'TB': 'Tampa Bay Buccaneers',
+                'TEN': 'Tennessee Titans', 'WAS': 'Washington Commanders'
+            }
+
+            team_full_name = team_name_map.get(team_abbr, '')
+
+            for event in events:
+                if team_full_name in [event.get('home_team', ''), event.get('away_team', '')]:
+                    event_id = event.get('id')
+                    break
+
+        if not event_id:
+            return {
+                'available': False,
+                'message': 'No upcoming game found for this team',
+                'props': []
+            }
+
+        # Get player props for the event
+        props_url = f"https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events/{event_id}/odds"
+        props_params = {
+            'apiKey': odds_api_key,
+            'regions': 'us',
+            'markets': 'player_pass_tds,player_pass_yds,player_rush_yds,player_receptions,player_reception_yds,alternate_player_reception_yds,player_anytime_td',
+            'oddsFormat': 'american'
+        }
+
+        props_response = requests.get(props_url, params=props_params, timeout=10)
+
+        if props_response.status_code != 200:
+            return {
+                'available': False,
+                'message': 'Player props not available for this game',
+                'props': []
+            }
+
+        props_data = props_response.json()
+
+        # Parse player props
+        player_props = []
+
+        if 'bookmakers' in props_data:
+            for bookmaker in props_data['bookmakers']:
+                sportsbook = bookmaker.get('title', 'Unknown')
+
+                for market in bookmaker.get('markets', []):
+                    market_key = market.get('key', '')
+
+                    for outcome in market.get('outcomes', []):
+                        outcome_player = outcome.get('description', '')
+
+                        # Match player name (case-insensitive, partial match)
+                        if player_name.lower() in outcome_player.lower():
+                            prop = {
+                                'sportsbook': sportsbook,
+                                'market': market_key.replace('_', ' ').title(),
+                                'player': outcome_player,
+                                'line': outcome.get('point'),
+                                'over_odds': outcome.get('price') if outcome.get('name') == 'Over' else None,
+                                'under_odds': outcome.get('price') if outcome.get('name') == 'Under' else None,
+                                'odds': outcome.get('price')
+                            }
+                            player_props.append(prop)
+
+        # Group props by market and sportsbook
+        grouped_props = {}
+        for prop in player_props:
+            market = prop['market']
+            if market not in grouped_props:
+                grouped_props[market] = []
+            grouped_props[market].append(prop)
+
+        result = {
+            'available': True,
+            'message': f'Found {len(player_props)} betting lines',
+            'props': grouped_props,
+            'raw_props': player_props
+        }
+
+        # Cache the result
+        odds_cache['data'][cache_key] = result
+        odds_cache['last_update'][cache_key] = current_time
+
+        return result
+
+    except Exception as e:
+        print(f"Betting odds error: {e}")
+        return {
+            'available': False,
+            'message': f'Error fetching odds: {str(e)}',
+            'props': []
+        }
+
 # Stadium locations mapping
 STADIUM_CITIES = {
     'Arrowhead Stadium': 'Kansas City, MO',
@@ -408,6 +560,7 @@ def player_profile(player_id):
     defensive_stats = None
     injuries = []
     weather = None
+    betting_odds = None
 
     if team != 'N/A':
         opponent_info = get_next_opponent(team)
@@ -421,6 +574,10 @@ def player_profile(player_id):
                 city = STADIUM_CITIES.get(opponent_info['stadium'], 'New York')
                 weather = get_weather_forecast(city, opponent_info.get('game_date', ''))
 
+        # Get betting odds for this player
+        player_name = player_info.get('name', 'Unknown')
+        betting_odds = get_player_betting_odds(player_name, team)
+
     return jsonify({
         'player': {
             'name': player_info.get('name', 'Unknown'),
@@ -433,7 +590,8 @@ def player_profile(player_id):
         'opponent_info': opponent_info,
         'defensive_stats': defensive_stats,
         'injuries': injuries,
-        'weather': weather
+        'weather': weather,
+        'betting_odds': betting_odds
     })
 
 if __name__ == '__main__':

@@ -57,6 +57,13 @@
         </div>
     </section>
 
+    <!-- Betting Odds / Player Props -->
+    <section class="odds-section" id="oddsSection" style="display: none;">
+        <h3>💰 Live Betting Odds & Player Props</h3>
+        <div id="oddsMessage" class="odds-message"></div>
+        <div id="oddsContent" class="odds-content"></div>
+    </section>
+
     <!-- Game Log -->
     <section class="game-log-section">
         <h3>📊 2024 Game Log</h3>
@@ -214,6 +221,11 @@ function displayPlayerProfile(data) {
     // Matchup info
     if (data.opponent_info) {
         displayMatchupInfo(data.opponent_info, data.defensive_stats, data.injuries, data.weather);
+    }
+
+    // Betting odds
+    if (data.betting_odds) {
+        displayBettingOdds(data.betting_odds);
     }
 
     // Game log
@@ -396,6 +408,99 @@ function displayMatchupInfo(opponent, defenseStats, injuries, weather) {
 
         injDiv.innerHTML = html;
     }
+}
+
+function displayBettingOdds(oddsData) {
+    const section = document.getElementById('oddsSection');
+    const messageDiv = document.getElementById('oddsMessage');
+    const contentDiv = document.getElementById('oddsContent');
+
+    if (!oddsData.available) {
+        section.style.display = 'block';
+        messageDiv.innerHTML = `<p class="odds-unavailable">ℹ️ ${oddsData.message}</p>`;
+        contentDiv.innerHTML = '';
+        return;
+    }
+
+    section.style.display = 'block';
+    messageDiv.innerHTML = `<p class="odds-available">✅ ${oddsData.message}</p>`;
+
+    // Display grouped props
+    let html = '';
+
+    if (oddsData.raw_props && oddsData.raw_props.length > 0) {
+        // Group by market type
+        const marketGroups = {};
+        oddsData.raw_props.forEach(prop => {
+            if (!marketGroups[prop.market]) {
+                marketGroups[prop.market] = [];
+            }
+            marketGroups[prop.market].push(prop);
+        });
+
+        // Display each market
+        for (const [market, props] of Object.entries(marketGroups)) {
+            html += `<div class="odds-market-card">`;
+            html += `<h4 class="market-title">${market}</h4>`;
+            html += `<div class="odds-table">`;
+
+            // Group by line value to show Over/Under together
+            const lineGroups = {};
+            props.forEach(prop => {
+                const key = `${prop.sportsbook}_${prop.line}`;
+                if (!lineGroups[key]) {
+                    lineGroups[key] = {
+                        sportsbook: prop.sportsbook,
+                        line: prop.line,
+                        over: null,
+                        under: null
+                    };
+                }
+                if (prop.over_odds !== null) {
+                    lineGroups[key].over = prop.over_odds;
+                }
+                if (prop.under_odds !== null) {
+                    lineGroups[key].under = prop.under_odds;
+                }
+                // For TD props without over/under
+                if (prop.over_odds === null && prop.under_odds === null) {
+                    lineGroups[key].odds = prop.odds;
+                }
+            });
+
+            // Display as table
+            html += `<table class="odds-comparison">`;
+            html += `<thead><tr><th>Sportsbook</th><th>Line</th><th>Over</th><th>Under</th></tr></thead>`;
+            html += `<tbody>`;
+
+            for (const group of Object.values(lineGroups)) {
+                html += `<tr>`;
+                html += `<td class="book-name">${group.sportsbook}</td>`;
+                html += `<td class="line-value">${group.line !== undefined && group.line !== null ? group.line : '-'}</td>`;
+
+                if (group.odds !== undefined) {
+                    // For moneyline type props (TD scorer)
+                    html += `<td class="odds-value" colspan="2">${formatOdds(group.odds)}</td>`;
+                } else {
+                    html += `<td class="odds-value ${group.over && group.over < 0 ? 'favorite' : ''}">${group.over ? formatOdds(group.over) : '-'}</td>`;
+                    html += `<td class="odds-value ${group.under && group.under < 0 ? 'favorite' : ''}">${group.under ? formatOdds(group.under) : '-'}</td>`;
+                }
+                html += `</tr>`;
+            }
+
+            html += `</tbody></table>`;
+            html += `</div></div>`;
+        }
+    } else {
+        html = '<p>No player props available at this time.</p>';
+    }
+
+    contentDiv.innerHTML = html;
+}
+
+function formatOdds(odds) {
+    if (odds === null || odds === undefined) return '-';
+    return odds > 0 ? `+${odds}` : odds;
 }
 
 function displayGameLog(gameLog) {

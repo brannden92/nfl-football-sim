@@ -7,6 +7,12 @@ A Flask web application designed to help with NFL betting decisions by providing
 - **Player Search**: Search any NFL player by name
 - **Season Statistics**: Complete 2024 season stats for quarterbacks, running backs, receivers, and tight ends
 - **Career Game Log**: Week-by-week performance breakdown for the entire season
+- **Live Betting Odds**: Real-time player props from major sportsbooks
+  - Passing yards Over/Under
+  - Rushing yards Over/Under
+  - Receiving yards Over/Under
+  - Touchdown scorer odds
+  - Compare odds across DraftKings, FanDuel, and more
 - **Opponent Analysis**:
   - Defensive statistics for upcoming opponent
   - Injured defensive players report
@@ -37,13 +43,18 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Edit `.env` and add your Weather API key:
+Edit `.env` and add your API keys (all optional but recommended):
 
 ```
-WEATHER_API_KEY=your_api_key_here
+WEATHER_API_KEY=your_weather_api_key_here
+ODDS_API_KEY=your_odds_api_key_here
 ```
 
-Get a free Weather API key from: https://www.weatherapi.com/signup.aspx
+**API Key Sources:**
+- Weather API (free tier): https://www.weatherapi.com/signup.aspx
+- The Odds API (500 requests/month free): https://the-odds-api.com/
+
+**Note**: The app works without API keys, but you'll get limited functionality. Betting odds are highly recommended for serious betting analysis!
 
 3. **Run the Application**
 
@@ -79,6 +90,12 @@ http://localhost:5000
 - **Injuries**: Defensive players listed on injury report (Out, Questionable, Doubtful)
 - **Weather**: Forecasted conditions for game day
 
+#### Live Betting Odds
+- **Player Props**: Real-time odds from multiple sportsbooks
+- **Market Types**: Passing yards, rushing yards, receiving yards, touchdowns
+- **Sportsbook Comparison**: See odds from DraftKings, FanDuel, BetMGM, Caesars, and more
+- **Line Shopping**: Compare lines and odds to find the best value
+
 #### Game Log
 - Week-by-week breakdown of all 2024 games
 - Includes passing, rushing, and receiving stats
@@ -96,9 +113,13 @@ Automated analysis highlighting:
 This application uses:
 
 - **nfl_data_py**: Official NFL statistics (free, no API key required)
+- **The Odds API**: Live betting odds and player props (500 requests/month free)
 - **WeatherAPI**: Weather forecasts (free tier available)
 
-Data is cached for 1 hour to minimize API calls and improve performance.
+Data is cached to minimize API calls and improve performance:
+- NFL stats: 1 hour cache
+- Betting odds: 15 minute cache (odds change frequently)
+- Weather: Included in matchup data cache
 
 ## Technical Details
 
